@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Freyschnitt – Variante 7: Schritt für Schritt + Ticket</title>
-<!-- Inspiration: Linear / Typeform / Apple Wallet – eine Frage pro Schritt, große Typo, Abschluss als Ticket -->
+<!-- Inspiration: Typeform / Apple Wallet – ein Schritt pro Bildschirm, große Typo, Abschluss als Ticket.
+     Texte wie auf der aktuellen Seite (Variante 4). -->
 <style>
   :root {
     --bg: #efece4; --ink: #121212; --muted: #74716a; --line: #d8d4c8; --card: #fbfaf6;
@@ -16,12 +17,13 @@
   body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
     background-image: radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px); background-size: 18px 18px; }
   .wrap { max-width: 520px; margin: 0 auto; padding: 22px 16px 48px; }
-  header { display: flex; justify-content: space-between; align-items: center; }
+  header { display: flex; justify-content: space-between; align-items: center; min-height: 20px; }
   .logo { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; }
   .logo b { color: var(--orange); font-weight: 400; }
   .step-no { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
-  .progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 18px 0 34px; }
+  .progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 18px 0 34px; transition: opacity .3s; }
+  .progress.hide { opacity: 0; }
   .progress i { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; }
   .progress i.done::after { content: ""; position: absolute; inset: 0; background: var(--ink); }
 
@@ -30,9 +32,11 @@
   @keyframes in { from { opacity: 0; transform: translateY(12px); } }
   @media (prefers-reduced-motion: reduce) { .step { animation: none; } }
 
-  h1 { font-size: clamp(38px, 11vw, 56px); line-height: .95; letter-spacing: -.045em; margin: 0 0 10px; font-weight: 800; }
-  h1 em { font-style: normal; background: var(--accent); padding: 0 .12em; border-radius: .12em; }
-  .sub { color: var(--muted); font-size: 16px; margin: 0 0 26px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-size: clamp(44px, 13vw, 64px); line-height: .92; letter-spacing: -.05em; margin: 0 0 14px; font-weight: 800; }
+  h1.mid { font-size: clamp(34px, 10vw, 48px); }
+  h1 em { font-style: normal; background: var(--accent); padding: 0 .1em; border-radius: .1em; }
+  .sub { color: var(--muted); font-size: 17px; line-height: 1.45; margin: 0 0 28px; max-width: 30ch; }
 
   .list { display: grid; gap: 10px; }
   .opt { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; border: 1.5px solid var(--ink); background: var(--card); border-radius: 18px; padding: 16px 18px; font: inherit; color: var(--ink); cursor: pointer; transition: transform .12s, box-shadow .12s; box-shadow: 0 3px 0 var(--ink); }
@@ -40,20 +44,31 @@
   .opt:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
   .opt b { font-size: 18px; }
   .opt small { color: var(--muted); font-size: 14px; }
-  .opt .n { font-family: var(--mono); font-size: 13px; background: var(--accent); border: 1px solid var(--ink); border-radius: 999px; padding: 4px 10px; }
+  .opt .n { font-family: var(--mono); font-size: 13px; background: var(--accent); border: 1px solid var(--ink); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
   .times { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .times .opt { justify-content: center; font-family: var(--mono); font-size: 20px; padding: 20px; }
 
-  .field { margin-bottom: 14px; }
+  .picked { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1.5px dashed var(--ink); border-radius: 16px; padding: 12px 14px; margin: 0 0 26px; font-family: var(--mono); font-size: 15px; }
+  .link { border: 0; background: none; font: inherit; font-size: 14px; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 4px; }
+  .back { border: 0; background: none; font: inherit; color: var(--muted); padding: 0; margin-bottom: 18px; cursor: pointer; font-size: 14px; }
+
+  .field { margin-bottom: 18px; }
   .field label { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
   .field input, .field textarea { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; font: inherit; font-size: 24px; padding: 6px 0 10px; color: var(--ink); outline: none; border-radius: 0; }
   .field textarea { font-size: 18px; resize: none; }
+  .field input::placeholder, .field textarea::placeholder { color: #a9a59b; }
   .field input:focus, .field textarea:focus { border-bottom-color: var(--orange); }
-  .btn { width: 100%; border: 1.5px solid var(--ink); background: var(--ink); color: var(--bg); border-radius: 18px; padding: 18px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 10px; display: flex; justify-content: space-between; }
-  .back { border: 0; background: none; font: inherit; color: var(--muted); padding: 0; margin-bottom: 18px; cursor: pointer; font-size: 14px; }
+
+  .btn { width: 100%; border: 1.5px solid var(--ink); background: var(--ink); color: var(--bg); border-radius: 18px; padding: 18px 20px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; }
+  .btn.center { justify-content: center; }
+  .btn.ghost { background: var(--card); color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+  .btn.ghost:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+
+  .gate { background: var(--card); border: 1.5px solid var(--ink); border-radius: 22px; padding: 20px; box-shadow: 0 4px 0 var(--ink); }
+  .gate .field { margin-bottom: 8px; }
 
   /* Ticket */
-  .ticket { background: var(--ink); color: var(--bg); border-radius: 26px; overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,.25); transform: rotate(-1.5deg); margin: 8px 6px 26px; }
+  .ticket { background: var(--ink); color: var(--bg); border-radius: 26px; overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,.25); transform: rotate(-1.5deg); margin: 8px 6px 24px; }
   .ticket .top { padding: 22px 22px 18px; background: var(--accent); color: var(--ink); }
   .ticket .top small { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; }
   .ticket .top strong { display: block; font-size: 34px; letter-spacing: -.03em; margin-top: 6px; line-height: 1; }
@@ -64,58 +79,76 @@
   .ticket .rows small { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: rgba(239,236,228,.55); }
   .ticket .rows b { font-size: 18px; }
   .ticket .code { padding: 0 22px 22px; font-family: var(--mono); font-size: 11px; letter-spacing: .5em; color: rgba(239,236,228,.4); }
-  .ghost { background: var(--card); color: var(--ink); }
-  .note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; font-family: var(--mono); }
+  .small { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 22px 0 0; }
+  .small + .small { margin-top: 10px; }
+  .note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 32px; font-family: var(--mono); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">FREY<b>/</b>SCHNITT</div><span class="step-no" id="no">1 / 3</span></header>
-  <div class="progress"><i class="done"></i><i></i><i></i></div>
+  <header><div class="logo">FREY<b>/</b>SCHNITT</div><span class="step-no" id="no"></span></header>
+  <div class="progress hide" id="progress"><i></i><i></i><i></i></div>
 
-  <section class="step on" data-s="1">
-    <h1>Wann hast du <em>Zeit?</em></h1>
-    <p class="sub">Haarschnitt · 45 Min · Penthouse</p>
-    <div class="list" id="days"></div>
+  <!-- 0: Passwort -->
+  <section class="step on" data-s="0">
+    <h1>Kopf <em>frei.</em></h1>
+    <p class="sub">Slot aussuchen, Namen rein, fertig. Bestätigung kommt per Mail.</p>
+    <div class="gate">
+      <p class="eyebrow">Nur für Freunde</p>
+      <div class="field"><label for="pw">Passwort</label><input id="pw" type="password" placeholder="Hab ich dir gesagt"></div>
+      <button class="btn" data-go="1">Los <span>→</span></button>
+    </div>
   </section>
 
+  <!-- 1: Tag -->
+  <section class="step" data-s="1">
+    <h1 class="mid">Freie <em>Termine</em></h1>
+    <div class="list" id="days" style="margin-top:26px"></div>
+  </section>
+
+  <!-- 2: Uhrzeit -->
   <section class="step" data-s="2">
-    <button class="back" data-go="1">← anderer Tag</button>
-    <h1 id="dayh">Samstag</h1>
-    <p class="sub">Welche Uhrzeit?</p>
+    <button class="back" data-go="1">← ändern</button>
+    <p class="eyebrow">Freie Termine</p>
+    <h1 class="mid" id="dayh">Samstag</h1>
     <div class="times" id="times"></div>
   </section>
 
+  <!-- 3: Buchen -->
   <section class="step" data-s="3">
-    <button class="back" data-go="2">← andere Uhrzeit</button>
-    <h1>Und wer <em>kommt?</em></h1>
-    <p class="sub" id="whenline"></p>
-    <div class="field"><label for="n">Name</label><input id="n" placeholder="Max"></div>
-    <div class="field"><label for="e">E-Mail</label><input id="e" type="email" placeholder="max@mail.de"></div>
-    <div class="field"><label for="t">Notiz (optional)</label><textarea id="t" rows="2" placeholder="Seiten kürzer …"></textarea></div>
+    <h1 class="mid"><em>Buchen</em></h1>
+    <div class="picked" style="margin-top:22px"><span id="pickedline"></span><button class="link" data-go="1">ändern</button></div>
+    <div class="field"><label for="n">Name</label><input id="n" placeholder="Dein Name" autocomplete="name"></div>
+    <div class="field"><label for="e">E-Mail</label><input id="e" type="email" placeholder="du@beispiel.de" autocomplete="email"></div>
+    <div class="field"><label for="t">Notiz (optional)</label><textarea id="t" rows="2"></textarea></div>
     <button class="btn" id="book">Termin buchen <span>→</span></button>
   </section>
 
+  <!-- 4: Gebucht -->
   <section class="step" data-s="4">
-    <h1>Du bist <em>drin.</em></h1>
-    <p class="sub">Bestätigung samt Kalendereinladung ist unterwegs.</p>
+    <h1>Läuft<em>.</em></h1>
+    <p class="sub">Dein Termin ist eingetragen.</p>
     <div class="ticket">
-      <div class="top"><small>FREY/SCHNITT · HAARSCHNITT</small><strong id="tk-day">Sa, 28. Nov</strong></div>
+      <div class="top"><small>FREY/SCHNITT · GEBUCHT</small><strong id="tk-day">Sa., 28. Nov.</strong></div>
       <div class="cut"></div>
       <div class="rows">
         <div><small>UHRZEIT</small><b id="tk-time">15:00</b></div>
         <div><small>DAUER</small><b>45 Min</b></div>
         <div><small>ORT</small><b>Penthouse</b></div>
-        <div><small>GAST</small><b id="tk-name">Max</b></div>
+        <div><small>NAME</small><b id="tk-name">Max</b></div>
       </div>
       <div class="code">||| | || ||| | ||| || |</div>
     </div>
-    <button class="btn ghost">In Kalender übernehmen <span>📅</span></button>
+    <button class="btn ghost center" id="cal">In Kalender übernehmen</button>
+    <p class="small" id="mailnote">Du bekommst gleich eine Bestätigung per Mail. Schau auch im Spam-Ordner nach, falls sie nicht ankommt.</p>
+    <p class="small">Du kannst doch nicht? Sag mir einfach kurz Bescheid, dann gebe ich den Slot wieder frei.</p>
   </section>
 
-  <p class="note">Vorschau 7 · Schritt für Schritt + Ticket (à la Typeform / Wallet)</p>
+  <p class="note">Vorschau 7 · Schritt für Schritt + Ticket</p>
 </div>
 <script>
+  // Beispieldaten (später kommen sie aus Supabase)
+  const DUR = 45;
   const data = [
     [new Date(2026, 10, 24), ["18:00","18:45","19:30","20:15"]],
     [new Date(2026, 10, 26), ["18:00","19:30"]],
@@ -123,14 +156,18 @@
     [new Date(2026, 11, 2), ["18:45","19:30"]],
   ];
   const fd = (d, o) => new Intl.DateTimeFormat("de-DE", o).format(d);
-  let day, time;
+  let day, time, start, end;
+
   function go(n) {
     document.querySelectorAll(".step").forEach(s => s.classList.toggle("on", s.dataset.s == n));
-    document.querySelectorAll(".progress i").forEach((p, i) => p.classList.toggle("done", i < Math.min(n, 3)));
-    document.getElementById("no").textContent = n > 3 ? "✓" : n + " / 3";
+    const p = document.getElementById("progress");
+    p.classList.toggle("hide", n === 0);
+    p.querySelectorAll("i").forEach((x, i) => x.classList.toggle("done", i < Math.min(n, 3)));
+    document.getElementById("no").textContent = n === 0 ? "" : n > 3 ? "✓" : n + " / 3";
     scrollTo({ top: 0, behavior: "smooth" });
   }
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(+b.dataset.go));
+
   const daysEl = document.getElementById("days");
   data.forEach(([d, ts]) => {
     const b = document.createElement("button"); b.className = "opt";
@@ -138,18 +175,62 @@
     b.onclick = () => {
       day = d; document.getElementById("dayh").textContent = fd(d, { weekday: "long", day: "numeric", month: "short" });
       const t = document.getElementById("times"); t.innerHTML = "";
-      ts.forEach(x => { const o = document.createElement("button"); o.className = "opt"; o.textContent = x;
-        o.onclick = () => { time = x; document.getElementById("whenline").textContent = fd(day, { weekday: "long", day: "numeric", month: "long" }) + " · " + x + " Uhr"; go(3); };
-        t.append(o); });
+      ts.forEach(x => {
+        const o = document.createElement("button"); o.className = "opt"; o.textContent = x;
+        o.onclick = () => {
+          time = x;
+          start = new Date(day); start.setHours(+x.slice(0, 2), +x.slice(3), 0, 0);
+          end = new Date(start.getTime() + DUR * 60000);
+          document.getElementById("pickedline").textContent = "→ " + fd(start, { weekday: "short", day: "2-digit", month: "2-digit" }) + " · " + x + " Uhr";
+          go(3);
+        };
+        t.append(o);
+      });
       go(2);
     };
     daysEl.append(b);
   });
+
   document.getElementById("book").onclick = () => {
-    document.getElementById("tk-day").textContent = fd(day, { weekday: "short", day: "numeric", month: "short" });
+    document.getElementById("tk-day").textContent = fd(start, { weekday: "short", day: "numeric", month: "short" });
     document.getElementById("tk-time").textContent = time;
     document.getElementById("tk-name").textContent = document.getElementById("n").value.trim() || "Max";
+    const mail = document.getElementById("e").value.trim();
+    if (mail) document.getElementById("mailnote").textContent = "Die Bestätigung geht an " + mail + ". Schau auch im Spam-Ordner nach, falls sie nicht ankommt.";
     go(4);
+  };
+
+  // ---- Kalender: dieselbe Einladung wie im Mail-Anhang ----
+  const icsDate = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  function buildIcs() {
+    return [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Freyschnitt//Termine//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      "BEGIN:VEVENT",
+      "UID:vorschau-" + start.getTime() + "@freyschnitt.de",
+      "DTSTAMP:" + icsDate(new Date()),
+      "DTSTART:" + icsDate(start),
+      "DTEND:" + icsDate(end),
+      "SUMMARY:Friseur Penthouse",
+      "DESCRIPTION:Du kannst doch nicht? Schreib mir.",
+      "LOCATION:Penthouse",
+      "STATUS:CONFIRMED",
+      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Friseur Penthouse", "TRIGGER:-PT1H", "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR", "",
+    ].join("\r\n");
+  }
+  document.getElementById("cal").onclick = () => {
+    const ics = buildIcs();
+    const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (iOS) {
+      // iPhone/iPad: Safari öffnet die Kalender-Vorschau mit „Hinzufügen“
+      location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+      a.download = "termin.ics";
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
   };
 </script>
 </body>
