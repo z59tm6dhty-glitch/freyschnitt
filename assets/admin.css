@@ -13,7 +13,7 @@
 
 .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 12px; }
-.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.toggle input { width: 18px; height: 18px; }
 
 /* Buchungskarten */
 .bk { border-top: 1px solid var(--edge); padding: 14px 0; display: grid; gap: 4px; }
@@ -43,11 +43,12 @@
 .slot .sbtn { padding: 6px 10px; font-size: 13px; min-height: 36px; }
 
 /* Formulare */
-fieldset.weekdays { border: 0; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+fieldset.weekdays { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 fieldset.weekdays legend { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; padding: 0; }
-.weekdays label { margin: 0; text-transform: none; letter-spacing: 0; font-size: 15px; }
-.weekdays input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.weekdays span { display: inline-grid; place-items: center; width: 46px; height: 44px; border-radius: 14px; border: 1px solid var(--edge); background: rgba(255,255,255,.05); color: var(--text); font-family: var(--mono); cursor: pointer; }
+fieldset.weekdays legend { grid-column: 1 / -1; }
+.weekdays label { position: relative; margin: 0; text-transform: none; letter-spacing: 0; font-size: 14px; }
+.weekdays input[type="checkbox"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; margin: 0; }
+.weekdays span { display: grid; place-items: center; height: 44px; border-radius: 14px; border: 1px solid var(--edge); background: rgba(255,255,255,.05); color: var(--text); font-family: var(--mono); cursor: pointer; }
 .weekdays input:checked + span { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
 .weekdays input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
