@@ -14,3 +14,7 @@ select table_name, grantee, string_agg(privilege_type, ', ' order by privilege_t
 from information_schema.role_table_grants
 where table_schema = 'public' and grantee in ('anon', 'authenticated')
 group by 1, 2 order by 1, 2;
+
+-- Nachtrag: automatisch vergebene Zusatzrechte entfernen (TRUNCATE umgeht RLS)
+revoke truncate, trigger, references on public.services from anon;
+revoke truncate, trigger, references on public.services, public.slots, public.bookings from authenticated;

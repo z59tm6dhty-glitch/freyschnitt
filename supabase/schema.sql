@@ -96,6 +96,9 @@ revoke all on public.admins, public.booking_attempts from authenticated;
 grant usage on schema public to anon, authenticated;
 grant select on public.services to anon;
 grant select, insert, update, delete on public.services, public.slots, public.bookings to authenticated;
+-- Automatisch vergebene Zusatzrechte entfernen (TRUNCATE umgeht RLS)
+revoke truncate, trigger, references on public.services from anon;
+revoke truncate, trigger, references on public.services, public.slots, public.bookings from authenticated;
 
 -- services: alle dürfen aktive Leistungen lesen, Admin darf alles
 create policy "services: aktive lesen" on public.services

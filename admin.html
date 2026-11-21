@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://uxvnlxhuhxcaexeznhck.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d0d0e">
+<title>Freyschnitt – Admin</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/admin.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d0d0e'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4ff3a'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="bg" aria-hidden="true"><span></span><span></span><span></span></div>
+<div class="wrap wide">
+  <header class="glass">
+    <a class="logo" href="./">frey<b>/</b>schnitt <span class="badge">admin</span></a>
+    <button id="logout" class="linkbtn" type="button" hidden>Abmelden</button>
+  </header>
+
+  <!-- Login -->
+  <section class="glass" id="login-view" hidden>
+    <h2>Anmelden</h2>
+    <form id="login-form">
+      <label for="l-email">E-Mail</label>
+      <input id="l-email" type="email" autocomplete="username" required>
+      <label for="l-pass">Passwort</label>
+      <input id="l-pass" type="password" autocomplete="current-password" required>
+      <p id="login-msg" class="msg error" role="alert"></p>
+      <button class="btn" type="submit" id="login-btn">Anmelden</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <div id="app-view" hidden>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-bookings" aria-selected="true" aria-controls="p-bookings">Buchungen</button>
+      <button role="tab" id="tab-slots" aria-selected="false" aria-controls="p-slots">Slots</button>
+      <button role="tab" id="tab-new" aria-selected="false" aria-controls="p-new">Anlegen</button>
+    </nav>
+    <p id="app-msg" class="msg" role="status"></p>
+
+    <!-- Buchungen -->
+    <section class="glass" id="p-bookings" role="tabpanel">
+      <div class="row-head">
+        <h2>Kommende Buchungen</h2>
+        <label class="toggle"><input type="checkbox" id="show-all"> alte &amp; stornierte</label>
+      </div>
+      <div id="bookings-list"><p class="loading">Lade …</p></div>
+    </section>
+
+    <!-- Slots -->
+    <section class="glass" id="p-slots" role="tabpanel" hidden>
+      <div class="row-head"><h2>Slots (nächste 10 Wochen)</h2></div>
+      <div id="slots-list"><p class="loading">Lade …</p></div>
+    </section>
+
+    <!-- Anlegen -->
+    <div id="p-new" role="tabpanel" hidden>
+      <section class="glass">
+        <h2>Serie anlegen</h2>
+        <form id="series-form">
+          <fieldset class="weekdays">
+            <legend>Wochentage</legend>
+            <label><input type="checkbox" value="1"><span>Mo</span></label>
+            <label><input type="checkbox" value="2" checked><span>Di</span></label>
+            <label><input type="checkbox" value="3"><span>Mi</span></label>
+            <label><input type="checkbox" value="4" checked><span>Do</span></label>
+            <label><input type="checkbox" value="5"><span>Fr</span></label>
+            <label><input type="checkbox" value="6"><span>Sa</span></label>
+            <label><input type="checkbox" value="7"><span>So</span></label>
+          </fieldset>
+          <div class="grid2">
+            <div><label for="s-from">Ab Datum</label><input id="s-from" type="date" required></div>
+            <div><label for="s-weeks">Wochen</label><input id="s-weeks" type="number" min="1" max="16" value="4" required></div>
+            <div><label for="s-tfrom">Von</label><input id="s-tfrom" type="time" value="18:00" step="300" required></div>
+            <div><label for="s-tto">Bis</label><input id="s-tto" type="time" value="21:00" step="300" required></div>
+            <div><label for="s-dur">Slot-Länge (Min.)</label><input id="s-dur" type="number" min="5" max="240" step="5" value="45" required></div>
+          </div>
+          <p class="hint" id="s-preview"></p>
+          <button class="btn" type="submit">Serie anlegen</button>
+        </form>
+      </section>
+
+      <section class="glass">
+        <h2>Einzelnen Slot anlegen</h2>
+        <form id="single-form">
+          <div class="grid2">
+            <div><label for="e-date">Datum</label><input id="e-date" type="date" required></div>
+            <div><label for="e-time">Uhrzeit</label><input id="e-time" type="time" value="18:00" step="300" required></div>
+            <div><label for="e-dur">Länge (Min.)</label><input id="e-dur" type="number" min="5" max="240" step="5" value="45" required></div>
+          </div>
+          <button class="btn" type="submit">Slot anlegen</button>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <footer><a href="./">Zur Buchungsseite</a></footer>
+</div>
+<script src="assets/vendor/supabase-js-2.49.4.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/admin.js"></script>
+</body>
+</html>
