@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Freyschnitt – Variante 6: App mit Wochenleiste</title>
+<!-- Inspiration: Fresha / Booksy / Treatwell – Datumsleiste zum Wischen, Zeit-Raster, Leiste unten, Formular als Bottom-Sheet -->
+<style>
+  :root {
+    --bg: #0b0b0c; --surface: #161618; --surface2: #202023; --text: #f4f4f1; --muted: #8d8d92; --line: #2a2a2e;
+    --accent: #d4ff3a; --accent-text: #0b0b0c;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 120px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+
+  .hero { position: relative; height: 230px; overflow: hidden; border-radius: 0 0 28px 28px;
+    background: radial-gradient(120% 90% at 85% 0%, rgba(212,255,58,.55), transparent 55%), radial-gradient(80% 80% at 0% 100%, #2b350c, transparent 70%), #121212; }
+  .hero::after { content: "✂"; position: absolute; right: 22px; bottom: -28px; font-size: 180px; opacity: .08; transform: rotate(-20deg); }
+  .top { display: flex; justify-content: space-between; align-items: center; padding: 18px 18px 0; }
+  .logo { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; }
+  .logo b { color: var(--accent); font-weight: 400; }
+  .badge { font-size: 12px; background: rgba(0,0,0,.35); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px 10px; }
+  .hero h1 { position: absolute; left: 18px; bottom: 20px; margin: 0; font-size: 34px; letter-spacing: -.03em; line-height: 1; }
+  .hero h1 small { display: block; font-size: 14px; color: rgba(255,255,255,.7); letter-spacing: 0; font-weight: 500; margin-top: 8px; }
+
+  .facts { display: flex; gap: 8px; padding: 16px 18px 4px; overflow-x: auto; scrollbar-width: none; }
+  .facts span { flex: none; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; }
+
+  h2 { font-size: 20px; margin: 24px 18px 12px; letter-spacing: -.02em; display: flex; justify-content: space-between; align-items: baseline; }
+  h2 small { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+  .strip { display: flex; gap: 8px; overflow-x: auto; padding: 0 18px 4px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .strip::-webkit-scrollbar, .facts::-webkit-scrollbar { display: none; }
+  .d { flex: none; width: 62px; scroll-snap-align: start; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 18px; padding: 10px 0 12px; text-align: center; font: inherit; cursor: pointer; }
+  .d small { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .d b { display: block; font-size: 22px; margin: 4px 0 6px; }
+  .d i { display: block; width: 6px; height: 6px; margin: 0 auto; border-radius: 50%; background: var(--accent); }
+  .d.off { opacity: .35; cursor: default; }
+  .d.off i { background: transparent; }
+  .d.sel { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .d.sel small { color: rgba(0,0,0,.6); }
+  .d.sel i { background: var(--accent-text); }
+
+  .part { font-size: 12px; font-family: var(--mono); letter-spacing: .1em; color: var(--muted); margin: 18px 18px 8px; text-transform: uppercase; }
+  .times { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 18px; }
+  .t { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 14px; padding: 14px 0; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .t.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
+
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: rgba(11,11,12,.82); backdrop-filter: blur(20px); border-top: 1px solid var(--line); }
+  .bar .in { max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .bar .sum { flex: 1; font-size: 14px; color: var(--muted); }
+  .bar .sum b { display: block; color: var(--text); font-size: 16px; }
+  .btn { border: 0; border-radius: 999px; padding: 15px 22px; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 800; cursor: pointer; }
+  .btn:disabled { background: var(--surface2); color: var(--muted); }
+
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: .25s; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; transform: translateY(105%); transition: transform .35s cubic-bezier(.2,.9,.2,1); }
+  .sheet .in { max-width: 520px; margin: 0 auto; background: var(--surface); border-radius: 28px 28px 0 0; border: 1px solid var(--line); padding: 10px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .open .scrim { opacity: 1; pointer-events: auto; }
+  .open .sheet { transform: none; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 16px; }
+  .sheet h3 { margin: 0 0 4px; font-size: 22px; }
+  .sheet p { margin: 0 0 8px; color: var(--accent); font-family: var(--mono); font-size: 14px; }
+  .field { background: var(--surface2); border-radius: 14px; padding: 10px 14px; margin-top: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); }
+  .field input, .field textarea { width: 100%; border: 0; background: none; color: var(--text); font: inherit; font-size: 16px; padding: 4px 0 0; outline: none; resize: none; }
+  .sheet .btn { width: 100%; margin-top: 16px; }
+  .note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="top"><div class="logo">FREY<b>/</b>SCHNITT</div><span class="badge">🔒 Freunde</span></div>
+    <h1>Haarschnitt<small>45 Min · Penthouse</small></h1>
+  </div>
+  <div class="facts"><span>✂️ Haarschnitt</span><span>📍 Penthouse</span><span>📅 Kalender-Einladung</span><span>💬 Absage: kurz schreiben</span></div>
+
+  <h2>Wann passt's? <small id="mon">November</small></h2>
+  <div class="strip" id="strip"></div>
+
+  <div id="times"></div>
+  <p class="note">Vorschau 6 · App mit Wochenleiste (à la Fresha / Booksy)</p>
+</div>
+
+<div class="bar"><div class="in"><div class="sum" id="sum"><b>Noch keine Zeit</b>Tag und Uhrzeit wählen</div><button class="btn" id="next" disabled>Weiter</button></div></div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet"><div class="in">
+  <div class="grab"></div>
+  <h3>Fast geschafft</h3>
+  <p id="sheetwhen"></p>
+  <div class="field"><label for="n">Name</label><input id="n" placeholder="Dein Name"></div>
+  <div class="field"><label for="e">E-Mail</label><input id="e" type="email" placeholder="du@beispiel.de"></div>
+  <div class="field"><label for="t">Notiz (optional)</label><textarea id="t" rows="2" placeholder="Wie immer, nur kürzer …"></textarea></div>
+  <button class="btn" type="button">Termin buchen</button>
+</div></div>
+
+<script>
+  const base = new Date(2026, 10, 22);
+  const plan = [[], ["18:00","18:45","19:30","20:15"], [], ["18:00","19:30"], [], ["11:00","11:45","13:00","14:00","15:00","15:45"], [], [], ["18:00","18:45"], [], ["18:45","19:30","20:15"], [], ["12:00","12:45"], []];
+  const strip = document.getElementById("strip"), timesEl = document.getElementById("times");
+  let picked = null;
+  const fd = (d, o) => new Intl.DateTimeFormat("de-DE", o).format(d);
+  plan.forEach((ts, i) => {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    const b = document.createElement("button"); b.className = "d" + (ts.length ? "" : " off");
+    b.innerHTML = `<small>${fd(d, { weekday: "short" }).replace(".", "")}</small><b>${d.getDate()}</b><i></i>`;
+    if (ts.length) b.onclick = () => showDay(d, ts, b);
+    strip.append(b);
+  });
+  function showDay(d, ts, btn) {
+    strip.querySelectorAll(".sel").forEach(x => x.classList.remove("sel")); btn.classList.add("sel");
+    const groups = { Vormittag: [], Nachmittag: [], Abend: [] };
+    ts.forEach(t => { const h = +t.slice(0, 2); (h < 12 ? groups.Vormittag : h < 17 ? groups.Nachmittag : groups.Abend).push(t); });
+    timesEl.innerHTML = "";
+    for (const [k, list] of Object.entries(groups)) {
+      if (!list.length) continue;
+      timesEl.insertAdjacentHTML("beforeend", `<div class="part">${k}</div>`);
+      const g = document.createElement("div"); g.className = "times";
+      list.forEach(t => { const b = document.createElement("button"); b.className = "t"; b.textContent = t;
+        b.onclick = () => { timesEl.querySelectorAll(".t.sel").forEach(x => x.classList.remove("sel")); b.classList.add("sel"); picked = fd(d, { weekday: "long", day: "numeric", month: "long" }) + " · " + t + " Uhr"; update(); };
+        g.append(b); });
+      timesEl.append(g);
+    }
+    picked = null; update();
+  }
+  function update() {
+    document.getElementById("sum").innerHTML = picked ? `<b>${picked}</b>Haarschnitt · 45 Min` : "<b>Noch keine Zeit</b>Uhrzeit wählen";
+    document.getElementById("next").disabled = !picked;
+  }
+  document.getElementById("next").onclick = () => { document.getElementById("sheetwhen").textContent = picked; document.body.classList.add("open"); };
+  document.getElementById("scrim").onclick = () => document.body.classList.remove("open");
+  strip.children[1].click();
+</script>
+</body>
+</html>

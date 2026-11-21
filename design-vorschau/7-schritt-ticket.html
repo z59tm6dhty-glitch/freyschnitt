@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freyschnitt – Variante 7: Schritt für Schritt + Ticket</title>
+<!-- Inspiration: Linear / Typeform / Apple Wallet – eine Frage pro Schritt, große Typo, Abschluss als Ticket -->
+<style>
+  :root {
+    --bg: #efece4; --ink: #121212; --muted: #74716a; --line: #d8d4c8; --card: #fbfaf6;
+    --accent: #d4ff3a; --orange: #ff5b2e;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    background-image: radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px); background-size: 18px 18px; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 22px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; }
+  .logo b { color: var(--orange); font-weight: 400; }
+  .step-no { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  .progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 18px 0 34px; }
+  .progress i { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; }
+  .progress i.done::after { content: ""; position: absolute; inset: 0; background: var(--ink); }
+
+  .step { display: none; animation: in .35s cubic-bezier(.2,.9,.2,1); }
+  .step.on { display: block; }
+  @keyframes in { from { opacity: 0; transform: translateY(12px); } }
+  @media (prefers-reduced-motion: reduce) { .step { animation: none; } }
+
+  h1 { font-size: clamp(38px, 11vw, 56px); line-height: .95; letter-spacing: -.045em; margin: 0 0 10px; font-weight: 800; }
+  h1 em { font-style: normal; background: var(--accent); padding: 0 .12em; border-radius: .12em; }
+  .sub { color: var(--muted); font-size: 16px; margin: 0 0 26px; }
+
+  .list { display: grid; gap: 10px; }
+  .opt { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; border: 1.5px solid var(--ink); background: var(--card); border-radius: 18px; padding: 16px 18px; font: inherit; color: var(--ink); cursor: pointer; transition: transform .12s, box-shadow .12s; box-shadow: 0 3px 0 var(--ink); }
+  .opt:hover { transform: translateY(-1px); box-shadow: 0 4px 0 var(--ink); }
+  .opt:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .opt b { font-size: 18px; }
+  .opt small { color: var(--muted); font-size: 14px; }
+  .opt .n { font-family: var(--mono); font-size: 13px; background: var(--accent); border: 1px solid var(--ink); border-radius: 999px; padding: 4px 10px; }
+  .times { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .times .opt { justify-content: center; font-family: var(--mono); font-size: 20px; padding: 20px; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field textarea { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; font: inherit; font-size: 24px; padding: 6px 0 10px; color: var(--ink); outline: none; border-radius: 0; }
+  .field textarea { font-size: 18px; resize: none; }
+  .field input:focus, .field textarea:focus { border-bottom-color: var(--orange); }
+  .btn { width: 100%; border: 1.5px solid var(--ink); background: var(--ink); color: var(--bg); border-radius: 18px; padding: 18px; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 10px; display: flex; justify-content: space-between; }
+  .back { border: 0; background: none; font: inherit; color: var(--muted); padding: 0; margin-bottom: 18px; cursor: pointer; font-size: 14px; }
+
+  /* Ticket */
+  .ticket { background: var(--ink); color: var(--bg); border-radius: 26px; overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,.25); transform: rotate(-1.5deg); margin: 8px 6px 26px; }
+  .ticket .top { padding: 22px 22px 18px; background: var(--accent); color: var(--ink); }
+  .ticket .top small { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; }
+  .ticket .top strong { display: block; font-size: 34px; letter-spacing: -.03em; margin-top: 6px; line-height: 1; }
+  .ticket .cut { height: 0; border-top: 2px dashed rgba(239,236,228,.25); margin: 0 22px; position: relative; }
+  .ticket .cut::before, .ticket .cut::after { content: ""; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--bg); }
+  .ticket .cut::before { left: -35px; } .ticket .cut::after { right: -35px; }
+  .ticket .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 22px 24px; }
+  .ticket .rows small { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: rgba(239,236,228,.55); }
+  .ticket .rows b { font-size: 18px; }
+  .ticket .code { padding: 0 22px 22px; font-family: var(--mono); font-size: 11px; letter-spacing: .5em; color: rgba(239,236,228,.4); }
+  .ghost { background: var(--card); color: var(--ink); }
+  .note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">FREY<b>/</b>SCHNITT</div><span class="step-no" id="no">1 / 3</span></header>
+  <div class="progress"><i class="done"></i><i></i><i></i></div>
+
+  <section class="step on" data-s="1">
+    <h1>Wann hast du <em>Zeit?</em></h1>
+    <p class="sub">Haarschnitt · 45 Min · Penthouse</p>
+    <div class="list" id="days"></div>
+  </section>
+
+  <section class="step" data-s="2">
+    <button class="back" data-go="1">← anderer Tag</button>
+    <h1 id="dayh">Samstag</h1>
+    <p class="sub">Welche Uhrzeit?</p>
+    <div class="times" id="times"></div>
+  </section>
+
+  <section class="step" data-s="3">
+    <button class="back" data-go="2">← andere Uhrzeit</button>
+    <h1>Und wer <em>kommt?</em></h1>
+    <p class="sub" id="whenline"></p>
+    <div class="field"><label for="n">Name</label><input id="n" placeholder="Max"></div>
+    <div class="field"><label for="e">E-Mail</label><input id="e" type="email" placeholder="max@mail.de"></div>
+    <div class="field"><label for="t">Notiz (optional)</label><textarea id="t" rows="2" placeholder="Seiten kürzer …"></textarea></div>
+    <button class="btn" id="book">Termin buchen <span>→</span></button>
+  </section>
+
+  <section class="step" data-s="4">
+    <h1>Du bist <em>drin.</em></h1>
+    <p class="sub">Bestätigung samt Kalendereinladung ist unterwegs.</p>
+    <div class="ticket">
+      <div class="top"><small>FREY/SCHNITT · HAARSCHNITT</small><strong id="tk-day">Sa, 28. Nov</strong></div>
+      <div class="cut"></div>
+      <div class="rows">
+        <div><small>UHRZEIT</small><b id="tk-time">15:00</b></div>
+        <div><small>DAUER</small><b>45 Min</b></div>
+        <div><small>ORT</small><b>Penthouse</b></div>
+        <div><small>GAST</small><b id="tk-name">Max</b></div>
+      </div>
+      <div class="code">||| | || ||| | ||| || |</div>
+    </div>
+    <button class="btn ghost">In Kalender übernehmen <span>📅</span></button>
+  </section>
+
+  <p class="note">Vorschau 7 · Schritt für Schritt + Ticket (à la Typeform / Wallet)</p>
+</div>
+<script>
+  const data = [
+    [new Date(2026, 10, 24), ["18:00","18:45","19:30","20:15"]],
+    [new Date(2026, 10, 26), ["18:00","19:30"]],
+    [new Date(2026, 10, 28), ["11:00","11:45","14:00","15:00"]],
+    [new Date(2026, 11, 2), ["18:45","19:30"]],
+  ];
+  const fd = (d, o) => new Intl.DateTimeFormat("de-DE", o).format(d);
+  let day, time;
+  function go(n) {
+    document.querySelectorAll(".step").forEach(s => s.classList.toggle("on", s.dataset.s == n));
+    document.querySelectorAll(".progress i").forEach((p, i) => p.classList.toggle("done", i < Math.min(n, 3)));
+    document.getElementById("no").textContent = n > 3 ? "✓" : n + " / 3";
+    scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(+b.dataset.go));
+  const daysEl = document.getElementById("days");
+  data.forEach(([d, ts]) => {
+    const b = document.createElement("button"); b.className = "opt";
+    b.innerHTML = `<span><b>${fd(d, { weekday: "long" })}</b><br><small>${fd(d, { day: "numeric", month: "long" })}</small></span><span class="n">${ts.length} frei</span>`;
+    b.onclick = () => {
+      day = d; document.getElementById("dayh").textContent = fd(d, { weekday: "long", day: "numeric", month: "short" });
+      const t = document.getElementById("times"); t.innerHTML = "";
+      ts.forEach(x => { const o = document.createElement("button"); o.className = "opt"; o.textContent = x;
+        o.onclick = () => { time = x; document.getElementById("whenline").textContent = fd(day, { weekday: "long", day: "numeric", month: "long" }) + " · " + x + " Uhr"; go(3); };
+        t.append(o); });
+      go(2);
+    };
+    daysEl.append(b);
+  });
+  document.getElementById("book").onclick = () => {
+    document.getElementById("tk-day").textContent = fd(day, { weekday: "short", day: "numeric", month: "short" });
+    document.getElementById("tk-time").textContent = time;
+    document.getElementById("tk-name").textContent = document.getElementById("n").value.trim() || "Max";
+    go(4);
+  };
+</script>
+</body>
+</html>
