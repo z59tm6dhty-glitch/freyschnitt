@@ -97,7 +97,6 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .msg.error { background: rgba(255, 107, 107, .12); border: 1px solid rgba(255, 107, 107, .4); color: #ffd0d0; }
 .msg:empty { display: none; }
 #slots-msg { margin: 0 0 14px; }
-.turnstile { margin-top: 16px; min-height: 0; }
 
 /* Honeypot: für Menschen unsichtbar, für Bots ein normales Feld */
 .hp { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; overflow: hidden; }

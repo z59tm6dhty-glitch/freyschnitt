@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://uxvnlxhuhxcaexeznhck.supabase.co; frame-src https://challenges.cloudflare.com; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://uxvnlxhuhxcaexeznhck.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="theme-color" content="#0d0d0e">
 <meta name="description" content="Freie Termine für einen frischen Schnitt – einfach Slot aussuchen und eintragen.">
@@ -23,7 +23,17 @@
     <h1>Kopf<br>frei<em>.</em></h1>
     <p class="lead">Slot aussuchen, Namen rein, fertig. Bestätigung kommt per Mail.</p>
 
-    <section class="glass" id="termine" aria-labelledby="termine-h">
+    <section class="glass" id="gate" aria-labelledby="gate-h" hidden>
+      <h2 id="gate-h">Nur für Freunde</h2>
+      <form id="gate-form">
+        <label for="code">Passwort</label>
+        <input id="code" name="code" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required maxlength="200" placeholder="Hab ich dir gesagt">
+        <p id="gate-msg" class="msg error" role="alert"></p>
+        <button class="btn" id="gate-btn" type="submit">Los</button>
+      </form>
+    </section>
+
+    <section class="glass" id="termine" aria-labelledby="termine-h" hidden>
       <h2 id="termine-h">Freie Termine</h2>
       <p id="slots-msg" class="msg error" role="alert"></p>
       <div id="slots" aria-live="polite"><p class="loading">Lade Termine …</p></div>
@@ -55,15 +65,13 @@
         <label class="check"><input type="checkbox" id="consent" required>
           <span>Ich habe die <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutzerklärung</a> gelesen und bin einverstanden, dass meine Angaben zur Terminvergabe gespeichert werden.</span></label>
 
-        <div id="turnstile" class="turnstile"></div>
-
         <p id="msg" class="msg error" role="alert"></p>
         <button class="btn" id="submit" type="submit">Termin buchen</button>
       </form>
     </section>
   </main>
 
-  <footer><a href="datenschutz.html">Datenschutz</a> · <a href="impressum.html">Impressum</a></footer>
+  <footer><a href="datenschutz.html">Datenschutz</a></footer>
 </div>
 <script src="assets/config.js"></script>
 <script src="assets/app.js"></script>

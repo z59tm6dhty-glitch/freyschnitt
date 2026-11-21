@@ -66,6 +66,14 @@ create table public.booking_attempts (
 );
 create index booking_attempts_ip_idx on public.booking_attempts (ip_hash, created_at);
 
+-- Fehlversuche beim Freundes-Passwort (nur gehashte IPs, nach 24 h gelöscht)
+create table public.code_failures (
+  id          bigint generated always as identity primary key,
+  ip_hash     text not null,
+  created_at  timestamptz not null default now()
+);
+create index code_failures_ip_idx on public.code_failures (ip_hash, created_at);
+
 -- ---------------------------------------------------------------------
 -- 2. Hilfsfunktion: bin ich Admin?
 -- ---------------------------------------------------------------------
@@ -85,24 +93,22 @@ alter table public.slots             enable row level security;
 alter table public.bookings          enable row level security;
 alter table public.admins            enable row level security;
 alter table public.booking_attempts  enable row level security;
+alter table public.code_failures     enable row level security;
 
--- Doppelter Boden: anon bekommt auf die sensiblen Tabellen gar keine Rechte,
--- selbst wenn mal eine Policy falsch wäre.
-revoke all on public.slots, public.bookings, public.admins, public.booking_attempts from anon;
-revoke insert, update, delete on public.services from anon;
-revoke all on public.admins, public.booking_attempts from authenticated;
+-- Besucher (anon) bekommen KEINEN direkten Tabellenzugriff: alles läuft über die Edge Function,
+-- die das Freundes-Passwort prüft.
+revoke all on public.services, public.slots, public.bookings, public.admins,
+              public.booking_attempts, public.code_failures from anon;
+revoke all on public.admins, public.booking_attempts, public.code_failures from authenticated;
 
 -- Rechte ausdrücklich vergeben (neuere Projekte machen das nicht mehr automatisch)
 grant usage on schema public to anon, authenticated;
-grant select on public.services to anon;
 grant select, insert, update, delete on public.services, public.slots, public.bookings to authenticated;
+grant select on public.services to service_role;
 -- Automatisch vergebene Zusatzrechte entfernen (TRUNCATE umgeht RLS)
-revoke truncate, trigger, references on public.services from anon;
 revoke truncate, trigger, references on public.services, public.slots, public.bookings from authenticated;
 
--- services: alle dürfen aktive Leistungen lesen, Admin darf alles
-create policy "services: aktive lesen" on public.services
-  for select to anon, authenticated using (active);
+-- services: nur Admin (Besucher bekommen die Liste über die Edge Function)
 create policy "services: admin alles" on public.services
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
@@ -114,10 +120,10 @@ create policy "slots: admin alles" on public.slots
 create policy "bookings: admin alles" on public.bookings
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
--- admins / booking_attempts: keine Policies = kein Zugriff von außen
+-- admins / booking_attempts / code_failures: keine Policies = kein Zugriff von außen
 
 -- ---------------------------------------------------------------------
--- 4. Öffentlich: freie Slots abrufen (nur Zeit, keine Kundendaten)
+-- 4. Freie Slots abrufen (nur Zeit, keine Kundendaten) – nur für die Edge Function
 -- ---------------------------------------------------------------------
 create function public.get_free_slots(p_days int default 35)
 returns table (id uuid, starts_at timestamptz, ends_at timestamptz)
@@ -295,6 +301,31 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- 6b. Freundes-Passwort: Fehlversuche zählen (nur Edge Function)
+--     Rückgabe: 'OK' | 'WRONG' | 'BLOCKED' (>= 10 Fehlversuche pro IP und Stunde)
+-- ---------------------------------------------------------------------
+create function public.code_gate(p_ip_hash text, p_ok boolean)
+returns text
+language plpgsql volatile security definer
+set search_path = ''
+as $$
+begin
+  if p_ip_hash is null or char_length(p_ip_hash) < 16 then
+    return 'BLOCKED';
+  end if;
+  if (select count(*) from public.code_failures
+        where ip_hash = p_ip_hash and created_at > now() - interval '1 hour') >= 10 then
+    return 'BLOCKED';
+  end if;
+  if p_ok is distinct from true then
+    insert into public.code_failures (ip_hash) values (p_ip_hash);
+    return 'WRONG';
+  end if;
+  return 'OK';
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- 7. Aufräumen (Datenschutz): läuft täglich per pg_cron
 -- ---------------------------------------------------------------------
 create function public.purge_old_data()
@@ -312,6 +343,7 @@ as $$
      and not exists (select 1 from public.bookings b where b.slot_id = s.id);
   -- Rate-Limit-Einträge
   delete from public.booking_attempts where created_at < now() - interval '24 hours';
+  delete from public.code_failures    where created_at < now() - interval '24 hours';
 $$;
 
 select cron.schedule('freyschnitt-purge', '17 3 * * *', $$select public.purge_old_data();$$);
@@ -324,9 +356,11 @@ revoke execute on function public.get_free_slots(int)                           
 revoke execute on function public.book_slot(uuid, smallint, text, text, text, boolean, text) from public, anon, authenticated;
 revoke execute on function public.create_slot_series(int[], date, date, time, time, int) from public, anon, authenticated;
 revoke execute on function public.purge_old_data()                                   from public, anon, authenticated;
+revoke execute on function public.code_gate(text, boolean)                           from public, anon, authenticated;
 
 grant execute on function public.is_admin()                to authenticated;
-grant execute on function public.get_free_slots(int)       to anon, authenticated;
+grant execute on function public.get_free_slots(int)       to service_role;
+grant execute on function public.code_gate(text, boolean)  to service_role;
 grant execute on function public.book_slot(uuid, smallint, text, text, text, boolean, text) to service_role;
 grant execute on function public.create_slot_series(int[], date, date, time, time, int) to authenticated;
 

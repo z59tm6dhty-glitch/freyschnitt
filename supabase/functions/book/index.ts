@@ -1,13 +1,15 @@
 // Supabase Edge Function "book"
-// Einziger Weg, eine Buchung anzulegen. Prüft Honeypot, Turnstile und Rate-Limit,
-// ruft dann die Datenbankfunktion book_slot() auf und verschickt die Mails.
+// Einziger öffentlicher Zugang zur Datenbank. Jede Anfrage braucht das Freundes-Passwort.
 //
-// Secrets (Dashboard → Edge Functions → Secrets), alle optional bis auf die automatisch vorhandenen:
-//   TURNSTILE_SECRET   Cloudflare Turnstile Secret Key   (gesetzt = Turnstile ist Pflicht)
-//   RESEND_API_KEY     Resend API Key                    (fehlt = keine Mails)
+//   { action: "slots", code }                → freie Termine + Leistungen
+//   { action: "book",  code, slot_id, ... }  → Termin buchen + Mails verschicken
+//
+// Secrets (Dashboard → Edge Functions → Secrets):
+//   FRIEND_CODE        das Passwort für deine Kumpels   (fehlt = Seite ist komplett gesperrt)
+//   RESEND_API_KEY     Resend API Key                   (fehlt = keine Mails)
 //   MAIL_FROM          z. B. "Freyschnitt <termine@freyschnitt.de>"
 //   ADMIN_EMAIL        deine Adresse für Benachrichtigungen
-//   SLACK_WEBHOOK_URL  Slack Incoming Webhook            (fehlt = kein Slack)
+//   SLACK_WEBHOOK_URL  Slack Incoming Webhook (optional)
 // Automatisch vorhanden: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
@@ -21,6 +23,7 @@ const ALLOWED_ORIGINS = [
 
 const TZ = "Europe/Berlin";
 const env = (k: string) => Deno.env.get(k) ?? "";
+const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 function cors(origin: string | null): HeadersInit {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -36,7 +39,7 @@ function cors(origin: string | null): HeadersInit {
 function json(body: unknown, origin: string | null, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...cors(origin), "content-type": "application/json; charset=utf-8" },
+    headers: { ...cors(origin), "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 }
 
@@ -44,40 +47,39 @@ function clientIp(req: Request): string {
   return (
     req.headers.get("cf-connecting-ip") ??
     req.headers.get("x-real-ip") ??
-    (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ??
-    "unknown"
+    (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim()
   ) || "unknown";
 }
+
+const enc = new TextEncoder();
 
 // IP nicht im Klartext speichern: HMAC mit geheimem Schlüssel + Tagesdatum
 async function hashIp(ip: string): Promise<string> {
   const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(env("SUPABASE_SERVICE_ROLE_KEY")),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
+    "raw", enc.encode(env("SUPABASE_SERVICE_ROLE_KEY")), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
   const day = new Date().toISOString().slice(0, 10);
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(ip + "|" + day));
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(ip + "|" + day));
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
-  const secret = env("TURNSTILE_SECRET");
-  if (!secret) return true; // Turnstile nicht eingerichtet
-  if (!token || token.length > 2048) return false;
-  const form = new FormData();
-  form.append("secret", secret);
-  form.append("response", token);
-  if (ip !== "unknown") form.append("remoteip", ip);
-  try {
-    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
-    const out = await r.json();
-    return out.success === true;
-  } catch {
+// Passwort vergleichen: Groß/Klein und Leerzeichen am Rand egal (Handy-Tastaturen!)
+const normCode = (s: string) => s.normalize("NFC").trim().toLowerCase();
+async function codeMatches(input: string): Promise<boolean> {
+  const expected = env("FRIEND_CODE");
+  if (!expected) {
+    console.error("FRIEND_CODE ist nicht gesetzt – Seite bleibt gesperrt.");
     return false;
   }
+  if (!input || input.length > 200) return false;
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(normCode(input))),
+    crypto.subtle.digest("SHA-256", enc.encode(normCode(expected))),
+  ]);
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i]; // zeitkonstanter Vergleich
+  return diff === 0;
 }
 
 const esc = (s: string) =>
@@ -85,9 +87,12 @@ const esc = (s: string) =>
 
 function fmt(startIso: string, endIso: string) {
   const s = new Date(startIso), e = new Date(endIso);
-  const day = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(s);
   const t = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-  return { day, time: `${t.format(s)}–${t.format(e)} Uhr`, short: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" }).format(s) + " " + t.format(s) };
+  return {
+    day: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(s),
+    time: `${t.format(s)}–${t.format(e)} Uhr`,
+    short: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" }).format(s) + " " + t.format(s),
+  };
 }
 
 async function sendMail(to: string, subject: string, html: string, text: string, replyTo?: string) {
@@ -124,26 +129,48 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "BAD_REQUEST" }, origin, 400);
   }
 
-  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const action = str(body.action) || "book";
+  if (action !== "slots" && action !== "book") return json({ ok: false, error: "BAD_REQUEST" }, origin, 400);
 
-  // 1. Honeypot / zu schnell ausgefüllt → so tun, als hätte es geklappt (Bot merkt nichts)
-  const elapsed = typeof body.elapsed_ms === "number" ? body.elapsed_ms : 0;
-  if (str(body.website) !== "" || elapsed < 3000) {
-    console.warn("Spam verworfen", { honeypot: str(body.website) !== "", elapsed });
-    return json({ ok: true, starts_at: null, ends_at: null, service: null }, origin);
+  // Honeypot / zu schnell ausgefüllt → so tun, als hätte es geklappt (Bot merkt nichts)
+  if (action === "book") {
+    const elapsed = typeof body.elapsed_ms === "number" ? body.elapsed_ms : 0;
+    if (str(body.website) !== "" || elapsed < 3000) {
+      console.warn("Spam verworfen", { honeypot: str(body.website) !== "", elapsed });
+      return json({ ok: true, starts_at: null, ends_at: null, service: null }, origin);
+    }
   }
 
-  const ip = clientIp(req);
-
-  // 2. Turnstile
-  if (!(await verifyTurnstile(str(body.turnstile_token), ip))) {
-    return json({ ok: false, error: "CAPTCHA" }, origin, 400);
-  }
-
-  // 3. Buchen (Rate-Limit, Validierung, Doppelbuchungsschutz passieren in der DB)
   const db = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const ipHash = await hashIp(clientIp(req));
+
+  // Freundes-Passwort prüfen (Fehlversuche werden pro IP gezählt)
+  const codeOk = await codeMatches(str(body.code));
+  const gate = await db.rpc("code_gate", { p_ip_hash: ipHash, p_ok: codeOk });
+  if (gate.error) {
+    console.error("code_gate-Fehler", gate.error.message);
+    return json({ ok: false, error: "SERVER" }, origin, 500);
+  }
+  if (gate.data === "BLOCKED") return json({ ok: false, error: "RATE_LIMIT" }, origin, 429);
+  if (gate.data !== "OK") return json({ ok: false, error: "WRONG_CODE" }, origin, 401);
+
+  // ---------- Termine + Leistungen ----------
+  if (action === "slots") {
+    const days = Math.min(Math.max(Number(body.days) || 35, 1), 90);
+    const [slots, services] = await Promise.all([
+      db.rpc("get_free_slots", { p_days: days }),
+      db.from("services").select("id,name").eq("active", true).order("sort"),
+    ]);
+    if (slots.error || services.error) {
+      console.error("Ladefehler", slots.error?.message, services.error?.message);
+      return json({ ok: false, error: "SERVER" }, origin, 500);
+    }
+    return json({ ok: true, slots: slots.data, services: services.data }, origin);
+  }
+
+  // ---------- Buchen ----------
   const { data, error } = await db.rpc("book_slot", {
     p_slot_id: str(body.slot_id),
     p_service_id: Number(body.service_id) || 0,
@@ -151,22 +178,20 @@ Deno.serve(async (req) => {
     p_email: str(body.email),
     p_note: str(body.note),
     p_consent: body.consent === true,
-    p_ip_hash: await hashIp(ip),
+    p_ip_hash: ipHash,
   });
 
   if (error) {
-    // z. B. ungültige UUID → nicht nach außen durchreichen
     console.error("book_slot-Fehler", error.message);
     const invalid = /uuid|invalid input/i.test(error.message);
     return json({ ok: false, error: invalid ? "SLOT_UNAVAILABLE" : "SERVER" }, origin, invalid ? 400 : 500);
   }
   if (!data?.ok) return json({ ok: false, error: data?.error ?? "SERVER" }, origin, 409);
 
-  // 4. Benachrichtigungen – Fehler hier machen die Buchung NICHT rückgängig
+  // Benachrichtigungen – Fehler hier machen die Buchung NICHT rückgängig
   const when = fmt(data.starts_at, data.ends_at);
   const name = esc(data.name);
   const note = data.note ? esc(data.note) : "";
-
   const tasks: Promise<unknown>[] = [];
 
   tasks.push(sendMail(
@@ -196,7 +221,7 @@ ${note ? `<p style="margin:12px 0 0;color:#b5b5b0">Notiz: ${note}</p>` : ""}`),
   }
 
   if (env("SLACK_WEBHOOK_URL")) {
-    // Bewusst ohne E-Mail-Adresse und Notiz (Datensparsamkeit)
+    // Bewusst ohne Name, E-Mail und Notiz (Datensparsamkeit)
     tasks.push(fetch(env("SLACK_WEBHOOK_URL"), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -205,6 +230,5 @@ ${note ? `<p style="margin:12px 0 0;color:#b5b5b0">Notiz: ${note}</p>` : ""}`),
   }
 
   await Promise.allSettled(tasks);
-
   return json({ ok: true, starts_at: data.starts_at, ends_at: data.ends_at, service: data.service }, origin);
 });
