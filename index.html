@@ -5,53 +5,63 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://uxvnlxhuhxcaexeznhck.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<meta name="theme-color" content="#0d0d0e">
+<meta name="theme-color" content="#efece4">
 <meta name="description" content="Freie Termine für einen frischen Schnitt – einfach Slot aussuchen und eintragen.">
 <title>Freyschnitt – Termin buchen</title>
 <link rel="stylesheet" href="assets/style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d0d0e'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4ff3a'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23121212'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4ff3a'/%3E%3C/svg%3E">
 </head>
 <body>
-<div class="bg" aria-hidden="true"><span></span><span></span><span></span></div>
 <div class="wrap">
-  <header class="glass">
-    <a class="logo" href="./">frey<b>/</b>schnitt</a>
-    <nav><a href="#termine">TERMINE →</a></nav>
+  <header>
+    <a class="logo" href="./">Frey<b>/</b>schnitt</a>
+    <span class="step-no" id="step-no"></span>
   </header>
+  <div class="progress hide" id="progress" aria-hidden="true"><i></i><i></i><i></i></div>
 
   <main>
-    <h1>Kopf<br>frei<em>.</em></h1>
-    <p class="lead">Slot aussuchen, Namen rein, fertig. Bestätigung kommt per Mail.</p>
-
-    <section class="glass" id="gate" aria-labelledby="gate-h" hidden>
-      <h2 id="gate-h">Nur für Freunde</h2>
-      <form id="gate-form">
-        <label for="code">Passwort</label>
-        <input id="code" name="code" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required maxlength="200" placeholder="Hab ich dir gesagt">
-        <p id="gate-msg" class="msg error" role="alert"></p>
-        <button class="btn" id="gate-btn" type="submit">Los</button>
+    <!-- 0: Passwort -->
+    <section class="step" id="s0" hidden>
+      <h1>Kopf <em>frei.</em></h1>
+      <p class="sub">Slot aussuchen, Namen rein, fertig. Bestätigung kommt per Mail.</p>
+      <form class="gate" id="gate-form">
+        <p class="eyebrow">Nur für Freunde</p>
+        <div class="field">
+          <label for="code">Passwort</label>
+          <input id="code" name="code" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required maxlength="200">
+        </div>
+        <p id="gate-msg" class="msg" role="alert"></p>
+        <button class="btn" id="gate-btn" type="submit"><span>Los</span><span aria-hidden="true">→</span></button>
       </form>
     </section>
 
-    <section class="glass" id="termine" aria-labelledby="termine-h" hidden>
-      <h2 id="termine-h">Freie Termine</h2>
-      <p id="slots-msg" class="msg error" role="alert"></p>
-      <div id="slots" aria-live="polite"><p class="loading">Lade Termine …</p></div>
+    <!-- 1: Tag -->
+    <section class="step" id="s1" hidden>
+      <h1 class="mid">Freie <em>Termine</em></h1>
+      <p id="slots-msg" class="msg" role="alert" style="margin:0 0 18px"></p>
+      <div class="list" id="days" aria-live="polite"><p class="loading">Lade Termine …</p></div>
     </section>
 
-    <section class="glass" id="buchen" aria-labelledby="buchen-h" hidden>
-      <h2 id="buchen-h">Buchen</h2>
+    <!-- 2: Uhrzeit -->
+    <section class="step" id="s2" hidden>
+      <button class="back" type="button" data-go="1">← ändern</button>
+      <p class="eyebrow">Freie Termine</p>
+      <h1 class="mid" id="day-h"></h1>
+      <div class="times" id="times"></div>
+    </section>
+
+    <!-- 3: Buchen -->
+    <section class="step" id="s3" hidden>
+      <h1 class="mid"><em>Buchen</em></h1>
       <form id="form" novalidate>
-        <div class="picked"><span id="picked-text"></span><button type="button" id="change">ändern</button></div>
+        <div class="picked"><span id="picked-text"></span><button type="button" class="link" data-go="1">ändern</button></div>
 
-        <label for="name">Name</label>
-        <input id="name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="Dein Name">
-
-        <label for="email">E-Mail</label>
-        <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="254" placeholder="du@beispiel.de">
-
-        <label for="note">Notiz (optional)</label>
-        <textarea id="note" name="note" maxlength="500" rows="3"></textarea>
+        <div class="field"><label for="name">Name</label>
+          <input id="name" name="name" autocomplete="name" required minlength="2" maxlength="80"></div>
+        <div class="field"><label for="email">E-Mail</label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" required maxlength="254"></div>
+        <div class="field"><label for="note">Notiz (optional)</label>
+          <textarea id="note" name="note" maxlength="500" rows="2"></textarea></div>
 
         <!-- Honeypot: bitte leer lassen (für Menschen unsichtbar) -->
         <div class="hp" aria-hidden="true">
@@ -59,12 +69,33 @@
           <input id="website" name="website" tabindex="-1" autocomplete="off">
         </div>
 
-        <p id="msg" class="msg error" role="alert"></p>
-        <button class="btn" id="submit" type="submit">Termin buchen</button>
+        <p id="msg" class="msg" role="alert"></p>
+        <button class="btn" id="submit" type="submit"><span>Termin buchen</span><span aria-hidden="true">→</span></button>
       </form>
     </section>
-  </main>
 
+    <!-- 4: Gebucht -->
+    <section class="step" id="s4" hidden>
+      <h1>Dein <em>Termin</em></h1>
+      <p class="sub">Ist eingetragen.</p>
+      <div class="ticket-wrap">
+        <div class="ticket">
+          <div class="top"><small>FREY/SCHNITT · GEBUCHT</small><strong id="tk-day"></strong></div>
+          <div class="cut"></div>
+          <div class="rows">
+            <div><small>UHRZEIT</small><b id="tk-time"></b></div>
+            <div><small>DAUER</small><b id="tk-dur"></b></div>
+            <div><small>ORT</small><b>Penthouse</b></div>
+            <div><small>NAME</small><b id="tk-name"></b></div>
+          </div>
+          <div class="code" aria-hidden="true">||| | || ||| | ||| || |</div>
+        </div>
+      </div>
+      <button class="btn ghost center" type="button" id="cal">In Kalender übernehmen</button>
+      <p class="small" id="mailnote">Du bekommst gleich eine Bestätigung per Mail. Schau auch im Spam-Ordner nach, falls sie nicht ankommt.</p>
+      <p class="small">Du kannst doch nicht? Sag mir einfach kurz Bescheid, dann gebe ich den Slot wieder frei.</p>
+    </section>
+  </main>
 </div>
 <script src="assets/config.js"></script>
 <script src="assets/app.js"></script>

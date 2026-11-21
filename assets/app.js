@@ -1,24 +1,23 @@
 // Freyschnitt – öffentliche Buchungsseite (ohne Framework, ohne Bibliothek)
 // Alle Daten kommen über die Edge Function "book", die das Freundes-Passwort prüft.
+// Ablauf: 0 Passwort → 1 Tag → 2 Uhrzeit → 3 Buchen → 4 Ticket
 (function () {
   "use strict";
 
   const C = window.FREY_CONFIG;
   const TZ = "Europe/Berlin";
   const CODE_KEY = "frey_code";
+  const LOCATION = "Penthouse";
   const $ = (id) => document.getElementById(id);
 
-  const els = {
-    gate: $("gate"), gateForm: $("gate-form"), gateMsg: $("gate-msg"), gateBtn: $("gate-btn"), code: $("code"),
-    termine: $("termine"), slots: $("slots"), slotsMsg: $("slots-msg"),
-    section: $("buchen"), form: $("form"), picked: $("picked-text"),
-    change: $("change"), msg: $("msg"), submit: $("submit"),
-  };
-
   let code = "";
+  let days = [];                // [{ date, items: [slot] }]
+  let currentDay = null;
   let selected = null;          // { id, starts_at, ends_at }
+  let booked = null;            // { starts_at, ends_at, name, email }
   let serviceId = 0;            // es gibt nur eine Leistung (Haarschnitt) → wird automatisch gesetzt
   let formShownAt = Date.now();
+  let step = -1;
 
   // ---------- Passwort merken (nur auf diesem Gerät) ----------
   const store = {
@@ -28,10 +27,37 @@
   };
 
   // ---------- Formatierung (immer deutsche Zeit) ----------
-  const fmtDay = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
-  const fmtShort = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" });
-  const fmtTime = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  const F = (o) => new Intl.DateTimeFormat("de-DE", Object.assign({ timeZone: TZ }, o));
+  const fmtWeekday = F({ weekday: "long" });
+  const fmtDate = F({ day: "numeric", month: "long" });
+  const fmtDayHead = F({ weekday: "long", day: "numeric", month: "short" });
+  const fmtShort = F({ weekday: "short", day: "2-digit", month: "2-digit" });
+  const fmtTicket = F({ weekday: "short", day: "numeric", month: "short" });
+  const fmtTime = F({ hour: "2-digit", minute: "2-digit" });
   const dayKey = (d) => new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(d); // YYYY-MM-DD
+
+  // ---------- Schritte ----------
+  function show(n, push) {
+    if (n === 2 && !currentDay) n = 1;
+    if (n === 3 && !selected) n = 1;
+    if (n === 4 && !booked) n = 1;
+    if (n > 0 && n < 4 && !code) n = 0;
+    for (let i = 0; i <= 4; i++) $("s" + i).hidden = i !== n;
+    const prog = $("progress");
+    prog.classList.toggle("hide", n === 0);
+    prog.querySelectorAll("i").forEach((x, i) => x.classList.toggle("done", i < Math.min(n, 3)));
+    $("step-no").textContent = n === 0 ? "" : n === 4 ? "✓" : n + " / 3";
+    if (push && n !== step) history.pushState({ s: n }, "");
+    step = n;
+    window.scrollTo(0, 0);
+    if (n === 0) setTimeout(() => $("code").focus(), 50);
+  }
+  window.addEventListener("popstate", (ev) => {
+    const n = ev.state && typeof ev.state.s === "number" ? ev.state.s : (code ? 1 : 0);
+    if (step === 4) { booked = null; selected = null; loadSlots(); }   // nach dem Buchen zurück = neu anfangen
+    show(n, false);
+  });
+  document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(+b.dataset.go, true)));
 
   // ---------- Edge Function ----------
   async function call(payload) {
@@ -52,30 +78,29 @@
 
   // ---------- Passwort-Abfrage ----------
   function showGate(message) {
-    els.gate.hidden = false;
-    els.termine.hidden = true;
-    els.section.hidden = true;
-    els.gateMsg.textContent = message || "";
-    setTimeout(() => els.code.focus(), 50);
+    $("gate-msg").textContent = message || "";
+    history.replaceState({ s: 0 }, "");
+    show(0, false);
   }
 
-  els.gateForm.addEventListener("submit", async (ev) => {
+  $("gate-form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    const v = els.code.value.trim();
+    const v = $("code").value.trim();
     if (!v) return;
     code = v;
-    els.gateBtn.disabled = true;
-    els.gateBtn.textContent = "Prüfe …";
+    const btn = $("gate-btn");
+    btn.disabled = true;
+    btn.firstElementChild.textContent = "Prüfe …";
     const ok = await loadSlots();
-    els.gateBtn.disabled = false;
-    els.gateBtn.textContent = "Los";
-    if (ok) { store.set(code); els.code.value = ""; }
+    btn.disabled = false;
+    btn.firstElementChild.textContent = "Los";
+    if (ok) { store.set(code); $("code").value = ""; show(1, true); }
   });
 
-  // ---------- Termine laden & anzeigen ----------
+  // ---------- Termine laden ----------
   // Rückgabe: true = Passwort ok und Daten geladen
   async function loadSlots() {
-    els.slots.replaceChildren(p("Lade Termine …", "loading"));
+    $("days").replaceChildren(p("Lade Termine …", "loading"));
     let out;
     try {
       out = await call({ action: "slots", days: C.DAYS_AHEAD });
@@ -84,76 +109,88 @@
     }
 
     if (!out.ok) {
-      if (out.error === "WRONG_CODE") { store.clear(); showGate(code ? "Das Passwort stimmt nicht." : ""); return false; }
-      if (out.error === "RATE_LIMIT") { showGate("Zu viele Versuche. Bitte warte eine Stunde."); return false; }
-      if (!els.gate.hidden) { els.gateMsg.textContent = "Gerade keine Verbindung. Bitte versuch es gleich nochmal."; return false; }
-      els.termine.hidden = false;
-      els.slots.replaceChildren(p("Termine konnten gerade nicht geladen werden. Bitte versuch es gleich nochmal.", "empty"));
+      if (out.error === "WRONG_CODE") { const had = !!code; store.clear(); code = ""; showGate(had ? "Das Passwort stimmt nicht." : ""); return false; }
+      if (out.error === "RATE_LIMIT") { code = ""; showGate("Zu viele Versuche. Bitte warte eine Stunde."); return false; }
+      if (step === 0) { $("gate-msg").textContent = "Gerade keine Verbindung. Bitte versuch es gleich nochmal."; return false; }
+      $("days").replaceChildren(p("Termine konnten gerade nicht geladen werden. Bitte versuch es gleich nochmal.", "empty"));
       return false;
     }
 
-    els.gate.hidden = true;
-    els.termine.hidden = false;
+    $("gate-msg").textContent = "";
     serviceId = out.services && out.services.length ? out.services[0].id : 0;
-    renderSlots(out.slots || []);
+    groupSlots(out.slots || []);
+    renderDays();
     return true;
   }
 
-  function renderSlots(slots) {
-    if (!slots.length) {
-      els.slots.replaceChildren(p("Gerade sind keine Termine frei. Schau bald wieder rein!", "empty"));
-      return;
-    }
+  function groupSlots(slots) {
     const groups = new Map();
     for (const s of slots) {
       const d = new Date(s.starts_at);
       const k = dayKey(d);
-      if (!groups.has(k)) groups.set(k, { date: d, items: [] });
+      if (!groups.has(k)) groups.set(k, { key: k, date: d, items: [] });
       groups.get(k).items.push(s);
     }
+    days = [...groups.values()];
+    if (currentDay) currentDay = days.find((d) => d.key === currentDay.key) || null;
+  }
 
-    const frag = document.createDocumentFragment();
-    for (const { date, items } of groups.values()) {
-      const day = document.createElement("div");
-      day.className = "day";
-      const title = document.createElement("div");
-      title.className = "day-title";
-      title.textContent = fmtDay.format(date);
-      const chips = document.createElement("div");
-      chips.className = "chips";
-      for (const s of items) {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "chip";
-        b.textContent = fmtTime.format(new Date(s.starts_at));
-        b.setAttribute("aria-pressed", selected && selected.id === s.id ? "true" : "false");
-        b.setAttribute("aria-label", fmtDay.format(date) + ", " + b.textContent + " Uhr");
-        b.addEventListener("click", () => pick(s, b));
-        chips.append(b);
-      }
-      day.append(title, chips);
-      frag.append(day);
+  // ---------- Schritt 1: Tage ----------
+  function renderDays() {
+    const box = $("days");
+    if (!days.length) {
+      box.replaceChildren(p("Gerade sind keine Termine frei. Schau bald wieder rein!", "empty"));
+      return;
     }
-    els.slots.replaceChildren(frag);
+    const frag = document.createDocumentFragment();
+    for (const day of days) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt";
+      const left = document.createElement("span");
+      const wd = document.createElement("b"); wd.textContent = fmtWeekday.format(day.date);
+      const dt = document.createElement("small"); dt.textContent = fmtDate.format(day.date);
+      left.append(wd, document.createElement("br"), dt);
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = day.items.length + " frei";
+      b.append(left, n);
+      b.addEventListener("click", () => openDay(day));
+      frag.append(b);
+    }
+    box.replaceChildren(frag);
   }
 
-  function pick(slot, btn) {
+  // ---------- Schritt 2: Uhrzeiten ----------
+  function openDay(day) {
+    currentDay = day;
+    $("slots-msg").textContent = "";
+    $("day-h").textContent = fmtDayHead.format(day.date);
+    const frag = document.createDocumentFragment();
+    for (const s of day.items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt";
+      b.textContent = fmtTime.format(new Date(s.starts_at));
+      b.setAttribute("aria-label", fmtDayHead.format(day.date) + ", " + b.textContent + " Uhr");
+      b.addEventListener("click", () => pick(s));
+      frag.append(b);
+    }
+    $("times").replaceChildren(frag);
+    show(2, true);
+  }
+
+  // ---------- Schritt 3: Buchen ----------
+  function pick(slot) {
+    if (!selected || selected.id !== slot.id) formShownAt = Date.now();
     selected = slot;
-    els.slots.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
-    btn.setAttribute("aria-pressed", "true");
     const s = new Date(slot.starts_at), e = new Date(slot.ends_at);
-    els.picked.textContent = "→ " + fmtShort.format(s) + " · " + fmtTime.format(s) + "–" + fmtTime.format(e);
-    if (els.section.hidden) formShownAt = Date.now();
-    els.section.hidden = false;
-    els.msg.textContent = "";
-    els.slotsMsg.textContent = "";
-    els.section.scrollIntoView({ block: "start" });
-    setTimeout(() => $("name").focus({ preventScroll: true }), 350);
+    $("picked-text").textContent = "→ " + fmtShort.format(s) + " · " + fmtTime.format(s) + "–" + fmtTime.format(e);
+    $("msg").textContent = "";
+    show(3, true);
+    setTimeout(() => { if (!$("name").value) $("name").focus({ preventScroll: true }); }, 350);
   }
 
-  els.change.addEventListener("click", () => els.termine.scrollIntoView({ block: "start" }));
-
-  // ---------- Absenden ----------
   const ERRORS = {
     SLOT_UNAVAILABLE: "Dieser Termin ist leider gerade weggegangen. Such dir bitte einen anderen aus.",
     RATE_LIMIT: "Zu viele Versuche. Bitte warte eine Stunde und versuch es dann nochmal.",
@@ -164,9 +201,9 @@
     INVALID_SERVICE: "Da ist etwas schiefgelaufen. Bitte lade die Seite neu.",
   };
 
-  els.form.addEventListener("submit", async (ev) => {
+  $("form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    els.msg.textContent = "";
+    $("msg").textContent = "";
 
     const data = {
       action: "book",
@@ -181,48 +218,103 @@
     };
 
     // Schnelle Prüfung im Browser (die echte Prüfung macht der Server)
-    if (!data.slot_id) return showError("Bitte wähl zuerst einen Termin aus.");
+    if (!data.slot_id) return show(1, true);
     if (data.name.length < 2) return showError(ERRORS.INVALID_NAME, "name");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return showError(ERRORS.INVALID_EMAIL, "email");
     if (!data.service_id) return showError(ERRORS.INVALID_SERVICE);
 
-    els.submit.disabled = true;
-    els.submit.textContent = "Wird gebucht …";
+    const btn = $("submit");
+    btn.disabled = true;
+    btn.firstElementChild.textContent = "Wird gebucht …";
     try {
       const out = await call(data);
       if (out.ok) {
-        try {
-          sessionStorage.setItem("frey_booking", JSON.stringify({
-            starts_at: out.starts_at, ends_at: out.ends_at, service: out.service, email: data.email,
-          }));
-        } catch (e) { /* privates Surfen: danke.html zeigt dann einen allgemeinen Text */ }
-        location.href = "danke.html";
+        booked = {
+          starts_at: out.starts_at || selected.starts_at,
+          ends_at: out.ends_at || selected.ends_at,
+          id: selected.id, name: data.name, email: data.email,
+        };
+        renderTicket();
+        $("form").reset();
+        history.replaceState({ s: 4 }, "");
+        show(4, false);
         return;
       }
-      if (out.error === "WRONG_CODE") { store.clear(); showGate("Das Passwort hat sich geändert. Bitte neu eingeben."); return; }
+      if (out.error === "WRONG_CODE") { store.clear(); code = ""; showGate("Das Passwort hat sich geändert. Bitte neu eingeben."); return; }
       if (out.error === "SLOT_UNAVAILABLE") {
         selected = null;
-        els.section.hidden = true;
-        els.slotsMsg.textContent = ERRORS.SLOT_UNAVAILABLE;
-        els.termine.scrollIntoView({ block: "start" });
-        loadSlots();
+        await loadSlots();
+        $("slots-msg").textContent = ERRORS.SLOT_UNAVAILABLE;
+        show(1, true);
         return;
       }
       showError(ERRORS[out.error] || "Da ist etwas schiefgelaufen. Bitte versuch es nochmal.");
     } catch (e) {
       showError("Keine Verbindung. Bitte prüf dein Internet und versuch es nochmal.");
     } finally {
-      els.submit.disabled = false;
-      els.submit.textContent = "Termin buchen";
+      btn.disabled = false;
+      btn.firstElementChild.textContent = "Termin buchen";
     }
   });
 
   function showError(text, focusId) {
-    els.msg.textContent = text;
+    $("msg").textContent = text;
     if (focusId) $(focusId).focus();
   }
 
+  // ---------- Schritt 4: Ticket ----------
+  function renderTicket() {
+    const s = new Date(booked.starts_at), e = new Date(booked.ends_at);
+    $("tk-day").textContent = fmtTicket.format(s);
+    $("tk-time").textContent = fmtTime.format(s);
+    $("tk-dur").textContent = Math.round((e - s) / 60000) + " Min";
+    $("tk-name").textContent = booked.name;
+    $("mailnote").textContent = "Die Bestätigung geht an " + booked.email + ". Schau auch im Spam-Ordner nach, falls sie nicht ankommt.";
+  }
+
+  // Kalender: dieselbe Einladung wie im Mail-Anhang
+  const icsDate = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  function buildIcs() {
+    return [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Freyschnitt//Termine//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      "BEGIN:VEVENT",
+      "UID:" + booked.id + "@freyschnitt.de",
+      "DTSTAMP:" + icsDate(new Date()),
+      "DTSTART:" + icsDate(new Date(booked.starts_at)),
+      "DTEND:" + icsDate(new Date(booked.ends_at)),
+      "SUMMARY:Friseur " + LOCATION,
+      "DESCRIPTION:Du kannst doch nicht? Schreib mir.",
+      "LOCATION:" + LOCATION,
+      "STATUS:CONFIRMED",
+      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Friseur " + LOCATION, "TRIGGER:-PT1H", "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR", "",
+    ].join("\r\n");
+  }
+  $("cal").addEventListener("click", () => {
+    if (!booked) return;
+    const ics = buildIcs();
+    const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (iOS) {
+      // iPhone/iPad: Safari öffnet die Kalender-Vorschau mit „Hinzufügen“
+      location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    a.download = "termin.ics";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
   // ---------- Start ----------
   code = store.get();
-  if (code) loadSlots(); else showGate();
+  if (code) {
+    history.replaceState({ s: 1 }, "");
+    show(1, false);
+    loadSlots();
+  } else {
+    showGate();
+  }
 })();
