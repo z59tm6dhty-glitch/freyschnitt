@@ -261,26 +261,24 @@ Deno.serve(async (req) => {
 
   const icsKunde = buildIcs({
     uid, start: data.starts_at, end: data.ends_at,
-    summary: `${data.service} bei Freyschnitt`,
-    description: "Du kannst doch nicht? Antworte einfach auf die Bestätigungsmail.",
+    summary: "Friseur Penthouse",
+    description: "Du kannst doch nicht? Schreib mir.",
   });
   const icsAdmin = buildIcs({
     uid, start: data.starts_at, end: data.ends_at,
-    summary: `${data.service}: ${data.name}`,
+    summary: `Schnitt ${data.name}`,
     description: `${data.name} <${data.email}>${data.note ? "\nNotiz: " + data.note : ""}`,
   });
 
   tasks.push(sendMail(
     data.email,
-    `Termin bestätigt: ${when.short}`,
+    `Haarschnitt ${when.short}`,
     mailLayout(`<h1 style="font-size:24px;margin:0 0 12px">Hey ${name}, dein Termin steht.</h1>
 <p style="margin:0 0 4px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.day)}</p>
 <p style="margin:0 0 16px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.time)}</p>
-<p style="margin:0 0 4px;color:#b5b5b0">Leistung: ${esc(data.service)}</p>
 <p style="margin:0 0 16px;color:#b5b5b0">Ort: ${esc(LOCATION)}</p>
-<p style="margin:0 0 16px;color:#b5b5b0">📅 Im Anhang ist der Termin für deinen Kalender – einfach antippen und hinzufügen. Du wirst 1 Stunde vorher erinnert.</p>
-<p style="margin:0;color:#b5b5b0">Du kannst doch nicht? Antworte einfach auf diese Mail, dann gebe ich den Slot wieder frei.</p>`),
-    `Hey ${data.name}, dein Termin steht.\n\n${when.day}\n${when.time}\nLeistung: ${data.service}\nOrt: ${LOCATION}\n\nIm Anhang ist der Termin für deinen Kalender.\n\nDu kannst doch nicht? Antworte einfach auf diese Mail.`,
+<p style="margin:0;color:#b5b5b0">Du kannst doch nicht? Schreib mir.</p>`),
+    `Hey ${data.name}, dein Termin steht.\n\n${when.day}\n${when.time}\nOrt: ${LOCATION}\n\nDu kannst doch nicht? Schreib mir.`,
     env("ADMIN_EMAIL") || undefined,
     [icsAttachment(icsKunde)],
   ));
@@ -292,9 +290,8 @@ Deno.serve(async (req) => {
       mailLayout(`<h1 style="font-size:22px;margin:0 0 12px">Neue Buchung</h1>
 <p style="margin:0 0 12px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.day)}<br>${esc(when.time)}</p>
 <p style="margin:0 0 4px">${name} · <a style="color:#f2f2f0" href="mailto:${esc(data.email)}">${esc(data.email)}</a></p>
-<p style="margin:0 0 4px;color:#b5b5b0">${esc(data.service)}</p>
 ${note ? `<p style="margin:12px 0 0;color:#b5b5b0">Notiz: ${note}</p>` : ""}`),
-      `Neue Buchung\n${when.day}, ${when.time}\n${data.name} <${data.email}>\n${data.service}${data.note ? "\nNotiz: " + data.note : ""}`,
+      `Neue Buchung\n${when.day}, ${when.time}\n${data.name} <${data.email}>${data.note ? "\nNotiz: " + data.note : ""}`,
       data.email,
       [icsAttachment(icsAdmin)],
     ));
