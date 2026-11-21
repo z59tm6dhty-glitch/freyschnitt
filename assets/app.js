@@ -12,11 +12,12 @@
     gate: $("gate"), gateForm: $("gate-form"), gateMsg: $("gate-msg"), gateBtn: $("gate-btn"), code: $("code"),
     termine: $("termine"), slots: $("slots"), slotsMsg: $("slots-msg"),
     section: $("buchen"), form: $("form"), picked: $("picked-text"),
-    change: $("change"), service: $("service"), msg: $("msg"), submit: $("submit"),
+    change: $("change"), msg: $("msg"), submit: $("submit"),
   };
 
   let code = "";
   let selected = null;          // { id, starts_at, ends_at }
+  let serviceId = 0;            // es gibt nur eine Leistung (Haarschnitt) → wird automatisch gesetzt
   let formShownAt = Date.now();
 
   // ---------- Passwort merken (nur auf diesem Gerät) ----------
@@ -93,20 +94,9 @@
 
     els.gate.hidden = true;
     els.termine.hidden = false;
-    renderServices(out.services || []);
+    serviceId = out.services && out.services.length ? out.services[0].id : 0;
     renderSlots(out.slots || []);
     return true;
-  }
-
-  function renderServices(list) {
-    const current = els.service.value;
-    els.service.replaceChildren(...list.map((s) => {
-      const o = document.createElement("option");
-      o.value = s.id;
-      o.textContent = s.name;
-      return o;
-    }));
-    if (current) els.service.value = current;
   }
 
   function renderSlots(slots) {
@@ -171,7 +161,7 @@
     INVALID_NAME: "Bitte gib deinen Namen an (mind. 2 Zeichen).",
     INVALID_EMAIL: "Bitte prüf deine E-Mail-Adresse.",
     INVALID_NOTE: "Die Notiz ist zu lang (max. 500 Zeichen).",
-    INVALID_SERVICE: "Bitte wähl eine Leistung aus.",
+    INVALID_SERVICE: "Da ist etwas schiefgelaufen. Bitte lade die Seite neu.",
     NO_CONSENT: "Bitte bestätige die Datenschutzerklärung.",
   };
 
@@ -182,7 +172,7 @@
     const data = {
       action: "book",
       slot_id: selected && selected.id,
-      service_id: Number(els.service.value),
+      service_id: serviceId,
       name: $("name").value.trim(),
       email: $("email").value.trim(),
       note: $("note").value.trim(),
@@ -195,7 +185,7 @@
     if (!data.slot_id) return showError("Bitte wähl zuerst einen Termin aus.");
     if (data.name.length < 2) return showError(ERRORS.INVALID_NAME, "name");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return showError(ERRORS.INVALID_EMAIL, "email");
-    if (!data.service_id) return showError(ERRORS.INVALID_SERVICE, "service");
+    if (!data.service_id) return showError(ERRORS.INVALID_SERVICE);
     if (!data.consent) return showError(ERRORS.NO_CONSENT, "consent");
 
     els.submit.disabled = true;

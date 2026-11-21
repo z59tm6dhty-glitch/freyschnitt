@@ -365,9 +365,7 @@ grant execute on function public.book_slot(uuid, smallint, text, text, text, boo
 grant execute on function public.create_slot_series(int[], date, date, time, time, int) to authenticated;
 
 -- ---------------------------------------------------------------------
--- 9. Start-Daten: Leistungen (später im Table Editor anpassbar)
+-- 9. Start-Daten: Leistung (es gibt nur eine; Wünsche kommen in die Notiz)
 -- ---------------------------------------------------------------------
 insert into public.services (name, sort) values
-  ('Haarschnitt', 1),
-  ('Haarschnitt + Bart', 2),
-  ('Nur Bart', 3);
+  ('Haarschnitt', 1);
