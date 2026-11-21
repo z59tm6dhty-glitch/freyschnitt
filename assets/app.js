@@ -162,7 +162,6 @@
     INVALID_EMAIL: "Bitte prüf deine E-Mail-Adresse.",
     INVALID_NOTE: "Die Notiz ist zu lang (max. 500 Zeichen).",
     INVALID_SERVICE: "Da ist etwas schiefgelaufen. Bitte lade die Seite neu.",
-    NO_CONSENT: "Bitte bestätige die Datenschutzerklärung.",
   };
 
   els.form.addEventListener("submit", async (ev) => {
@@ -176,7 +175,7 @@
       name: $("name").value.trim(),
       email: $("email").value.trim(),
       note: $("note").value.trim(),
-      consent: $("consent").checked,
+      consent: true,                             // Server erwartet das Feld; private Seite ohne Datenschutzerklärung
       website: $("website").value,               // Honeypot
       elapsed_ms: Date.now() - formShownAt,      // Bots sind schneller als Menschen
     };
@@ -186,7 +185,6 @@
     if (data.name.length < 2) return showError(ERRORS.INVALID_NAME, "name");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return showError(ERRORS.INVALID_EMAIL, "email");
     if (!data.service_id) return showError(ERRORS.INVALID_SERVICE);
-    if (!data.consent) return showError(ERRORS.NO_CONSENT, "consent");
 
     els.submit.disabled = true;
     els.submit.textContent = "Wird gebucht …";
