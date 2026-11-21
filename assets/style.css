@@ -75,6 +75,12 @@ textarea { resize: vertical; min-height: 90px; }
 input::placeholder, textarea::placeholder { color: rgba(242, 242, 240, .38); }
 select option { color: #000; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+/* Browser-Autofill (gelber Hintergrund) ans Design anpassen */
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text); caret-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px #1b1d14 inset; box-shadow: 0 0 0 1000px #1b1d14 inset;
+  transition: background-color 9999s ease-out;
+}
 .check { display: flex; gap: 10px; align-items: flex-start; font-family: inherit; text-transform: none; letter-spacing: 0; font-size: 14px; margin-top: 18px; color: var(--muted); }
 .check input { width: 20px; height: 20px; margin-top: 1px; flex: none; accent-color: var(--accent); }
 .check a, .text a { color: var(--text); }

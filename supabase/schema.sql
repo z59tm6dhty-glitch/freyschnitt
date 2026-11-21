@@ -92,6 +92,11 @@ revoke all on public.slots, public.bookings, public.admins, public.booking_attem
 revoke insert, update, delete on public.services from anon;
 revoke all on public.admins, public.booking_attempts from authenticated;
 
+-- Rechte ausdrücklich vergeben (neuere Projekte machen das nicht mehr automatisch)
+grant usage on schema public to anon, authenticated;
+grant select on public.services to anon;
+grant select, insert, update, delete on public.services, public.slots, public.bookings to authenticated;
+
 -- services: alle dürfen aktive Leistungen lesen, Admin darf alles
 create policy "services: aktive lesen" on public.services
   for select to anon, authenticated using (active);
