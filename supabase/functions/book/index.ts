@@ -95,14 +95,78 @@ function fmt(startIso: string, endIso: string) {
   };
 }
 
-async function sendMail(to: string, subject: string, html: string, text: string, replyTo?: string) {
+// ---------- Kalendereinladung (.ics) ----------
+const LOCATION = "Penthouse";
+
+// Text für ICS escapen (RFC 5545)
+const icsText = (s: string) =>
+  s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+
+// Zeilen > 75 Bytes umbrechen (Fortsetzung beginnt mit Leerzeichen)
+function icsFold(line: string): string {
+  const out: string[] = [];
+  let cur = "", bytes = 0;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (bytes + n > (out.length ? 74 : 75)) { out.push(cur); cur = ""; bytes = 0; }
+    cur += ch; bytes += n;
+  }
+  out.push(cur);
+  return out.join("\r\n ");
+}
+
+const icsDate = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+function buildIcs(o: { uid: string; start: string; end: string; summary: string; description: string }): string {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Freyschnitt//Termine//DE",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${o.uid}`,
+    `DTSTAMP:${icsDate(new Date().toISOString())}`,
+    `DTSTART:${icsDate(o.start)}`,
+    `DTEND:${icsDate(o.end)}`,
+    `SUMMARY:${icsText(o.summary)}`,
+    `DESCRIPTION:${icsText(o.description)}`,
+    `LOCATION:${icsText(LOCATION)}`,
+    "STATUS:CONFIRMED",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${icsText(o.summary)}`,
+    "TRIGGER:-PT1H",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return lines.map(icsFold).join("\r\n") + "\r\n";
+}
+
+const b64 = (s: string) => btoa(Array.from(enc.encode(s), (b) => String.fromCharCode(b)).join(""));
+
+type Attachment = { filename: string; content: string; content_type: string };
+const icsAttachment = (ics: string): Attachment => ({
+  filename: "termin.ics",
+  content: b64(ics),
+  content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+});
+
+async function sendMail(
+  to: string, subject: string, html: string, text: string, replyTo?: string, attachments?: Attachment[],
+) {
   const key = env("RESEND_API_KEY");
   const from = env("MAIL_FROM");
   if (!key || !from) return;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    body: JSON.stringify({
+      from, to: [to], subject, html, text,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments?.length ? { attachments } : {}),
+    }),
   });
   if (!r.ok) console.error("Resend-Fehler", r.status, await r.text());
 }
@@ -193,6 +257,18 @@ Deno.serve(async (req) => {
   const name = esc(data.name);
   const note = data.note ? esc(data.note) : "";
   const tasks: Promise<unknown>[] = [];
+  const uid = `${str(body.slot_id)}@freyschnitt.de`;
+
+  const icsKunde = buildIcs({
+    uid, start: data.starts_at, end: data.ends_at,
+    summary: `${data.service} bei Freyschnitt`,
+    description: "Du kannst doch nicht? Antworte einfach auf die Bestätigungsmail.",
+  });
+  const icsAdmin = buildIcs({
+    uid, start: data.starts_at, end: data.ends_at,
+    summary: `${data.service}: ${data.name}`,
+    description: `${data.name} <${data.email}>${data.note ? "\nNotiz: " + data.note : ""}`,
+  });
 
   tasks.push(sendMail(
     data.email,
@@ -200,10 +276,13 @@ Deno.serve(async (req) => {
     mailLayout(`<h1 style="font-size:24px;margin:0 0 12px">Hey ${name}, dein Termin steht.</h1>
 <p style="margin:0 0 4px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.day)}</p>
 <p style="margin:0 0 16px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.time)}</p>
-<p style="margin:0 0 16px;color:#b5b5b0">Leistung: ${esc(data.service)}</p>
+<p style="margin:0 0 4px;color:#b5b5b0">Leistung: ${esc(data.service)}</p>
+<p style="margin:0 0 16px;color:#b5b5b0">Ort: ${esc(LOCATION)}</p>
+<p style="margin:0 0 16px;color:#b5b5b0">📅 Im Anhang ist der Termin für deinen Kalender – einfach antippen und hinzufügen. Du wirst 1 Stunde vorher erinnert.</p>
 <p style="margin:0;color:#b5b5b0">Du kannst doch nicht? Antworte einfach auf diese Mail, dann gebe ich den Slot wieder frei.</p>`),
-    `Hey ${data.name}, dein Termin steht.\n\n${when.day}\n${when.time}\nLeistung: ${data.service}\n\nDu kannst doch nicht? Antworte einfach auf diese Mail.`,
+    `Hey ${data.name}, dein Termin steht.\n\n${when.day}\n${when.time}\nLeistung: ${data.service}\nOrt: ${LOCATION}\n\nIm Anhang ist der Termin für deinen Kalender.\n\nDu kannst doch nicht? Antworte einfach auf diese Mail.`,
     env("ADMIN_EMAIL") || undefined,
+    [icsAttachment(icsKunde)],
   ));
 
   if (env("ADMIN_EMAIL")) {
@@ -217,6 +296,7 @@ Deno.serve(async (req) => {
 ${note ? `<p style="margin:12px 0 0;color:#b5b5b0">Notiz: ${note}</p>` : ""}`),
       `Neue Buchung\n${when.day}, ${when.time}\n${data.name} <${data.email}>\n${data.service}${data.note ? "\nNotiz: " + data.note : ""}`,
       data.email,
+      [icsAttachment(icsAdmin)],
     ));
   }
 
