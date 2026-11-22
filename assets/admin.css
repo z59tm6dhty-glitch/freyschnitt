@@ -2,6 +2,13 @@
 .wrap.wide { max-width: 720px; }
 .badge { font-size: 10px; letter-spacing: .1em; background: var(--accent); color: var(--ink); border: 1px solid var(--ink); padding: 2px 6px; border-radius: 6px; margin-left: 6px; vertical-align: 1px; }
 .linkbtn { background: none; border: 0; color: var(--muted); font-family: var(--mono); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 6px; }
+.head-actions { display: flex; align-items: center; gap: 6px; }
+.iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 1.5px solid var(--ink); background: var(--card); color: var(--ink); box-shadow: 0 2px 0 var(--ink); cursor: pointer; padding: 0; }
+.iconbtn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--ink); }
+.iconbtn:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+.iconbtn.spin svg { animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .iconbtn.spin svg { animation: none; opacity: .5; } }
 #login-view, #app-view { margin-top: 28px; }
 
 /* Karten */

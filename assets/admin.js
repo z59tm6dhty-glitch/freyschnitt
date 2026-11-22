@@ -43,6 +43,7 @@
     if (!session) {
       $("app-view").hidden = true;
       $("logout").hidden = true;
+      $("reload").hidden = true;
       $("login-view").hidden = false;
       return;
     }
@@ -55,6 +56,7 @@
     $("login-view").hidden = true;
     $("app-view").hidden = false;
     $("logout").hidden = false;
+    $("reload").hidden = false;
     loadBookings();
   }
 
@@ -99,6 +101,31 @@
       if (tabId === "tab-new") updatePreview();
     });
   }
+
+  // ---------- Aktualisieren ----------
+  // Lädt den gerade offenen Tab neu. Passiert auch automatisch, wenn man
+  // zur App zurückkehrt (z. B. Home-Bildschirm-App aus dem Hintergrund).
+  async function refresh() {
+    if ($("app-view").hidden) return;
+    const btn = $("reload");
+    if (btn.classList.contains("spin")) return;
+    btn.classList.add("spin");
+    const started = Date.now();
+    try {
+      if (!$("p-bookings").hidden) await loadBookings();
+      else if (!$("p-slots").hidden) await loadSlots();
+      else updatePreview();
+    } finally {
+      // kurz sichtbar lassen, damit man merkt, dass etwas passiert ist
+      setTimeout(() => btn.classList.remove("spin"), Math.max(0, 400 - (Date.now() - started)));
+    }
+  }
+  $("reload").addEventListener("click", refresh);
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) hiddenAt = Date.now();
+    else if (hiddenAt && Date.now() - hiddenAt > 30000) refresh();
+  });
 
   // ---------- Buchungen ----------
   $("show-all").addEventListener("change", loadBookings);
