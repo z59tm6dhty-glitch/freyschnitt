@@ -92,6 +92,9 @@ function fmt(startIso: string, endIso: string) {
     day: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(s),
     time: `${t.format(s)}–${t.format(e)} Uhr`,
     short: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" }).format(s) + " " + t.format(s),
+    ticketDay: new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(s),
+    start: t.format(s),
+    dur: Math.round((e.getTime() - s.getTime()) / 60000) + " Min",
   };
 }
 
@@ -171,12 +174,66 @@ async function sendMail(
   if (!r.ok) console.error("Resend-Fehler", r.status, await r.text());
 }
 
-function mailLayout(inner: string) {
-  return `<!doctype html><html lang="de"><body style="margin:0;background:#0d0d0e;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#f2f2f0">
-<div style="max-width:480px;margin:0 auto;background:#17171a;border:1px solid #2a2a2f;border-radius:20px;padding:24px">
-<div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:20px">FREY<span style="color:#d4ff3a">/</span>SCHNITT</div>
+// ---------- Mail-Design (wie die Buchungsseite: Schritt für Schritt + Ticket) ----------
+// Mail-tauglich: nur Tabellen + Inline-Styles, keine Masken/Transforms (Gmail, Outlook, Apple Mail).
+const C = { bg: "#efece4", ink: "#121212", muted: "#74716a", card: "#fbfaf6", accent: "#d4ff3a", orange: "#ff5b2e" };
+const SANS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";
+
+function mailLayout(inner: string, preheader = "") {
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"></head>
+<body style="margin:0;padding:0;background:${C.bg};color:${C.ink};font-family:${SANS};-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">${preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.bg}">
+<tr><td align="center" style="padding:28px 16px 40px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px">
+<tr><td style="font-family:${MONO};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.ink};padding:0 0 30px">FREY<span style="color:${C.orange}">/</span>SCHNITT</td></tr>
 ${inner}
-</div></body></html>`;
+</table>
+</td></tr></table></body></html>`;
+}
+
+const hl = (s: string) =>
+  `<span style="background:${C.accent};padding:0 .1em;border-radius:.1em">${s}</span>`;
+
+function mailTitle(html: string) {
+  return `<tr><td style="font-family:${SANS};font-size:44px;line-height:.95;letter-spacing:-.05em;font-weight:800;color:${C.ink};padding:0 0 12px">${html}</td></tr>`;
+}
+
+function mailText(html: string, pad = "0 0 12px") {
+  return `<tr><td style="font-family:${SANS};font-size:16px;line-height:1.5;color:${C.muted};padding:${pad}">${html}</td></tr>`;
+}
+
+function ticketCell(label: string, value: string, full = false) {
+  return `<td ${full ? 'colspan="2"' : 'width="50%"'} valign="top" style="padding:0 10px 16px 0">
+<div style="font-family:${MONO};font-size:11px;letter-spacing:.12em;color:#8f8d87">${label}</div>
+<div style="font-family:${SANS};font-size:18px;font-weight:700;color:${C.bg};word-break:break-word">${value}</div></td>`;
+}
+
+// Ticket: oben Leuchtgelb mit Datum, Perforation mit Kerben, unten dunkel mit Details
+function mailTicket(o: { tag: string; day: string; rows: [string, string][] }) {
+  const rows: string[] = [];
+  for (let i = 0; i < o.rows.length; i += 2) {
+    const a = o.rows[i], b = o.rows[i + 1];
+    rows.push(`<tr>${ticketCell(a[0], a[1], !b)}${b ? ticketCell(b[0], b[1]) : ""}</tr>`);
+  }
+  return `<tr><td style="padding:14px 0 26px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate">
+<tr><td colspan="3" style="background:${C.accent};border-radius:26px 26px 0 0;padding:22px 22px 26px">
+<div style="font-family:${MONO};font-size:12px;letter-spacing:.12em;color:${C.ink}">FREY/SCHNITT · ${o.tag}</div>
+<div style="font-family:${SANS};font-size:34px;line-height:1;letter-spacing:-.03em;font-weight:800;color:${C.ink};padding-top:8px">${o.day}</div>
+</td></tr>
+<tr>
+<td width="12" style="width:12px;height:24px;background:${C.ink};font-size:0;line-height:0"><div style="width:12px;height:24px;background:${C.bg};border-radius:0 12px 12px 0"></div></td>
+<td style="background:${C.ink};padding:0 10px;font-size:0;line-height:0"><div style="border-top:2px dashed #4a4945;height:0"></div></td>
+<td width="12" style="width:12px;height:24px;background:${C.ink};font-size:0;line-height:0"><div style="width:12px;height:24px;background:${C.bg};border-radius:12px 0 0 12px"></div></td>
+</tr>
+<tr><td colspan="3" style="background:${C.ink};border-radius:0 0 26px 26px;padding:18px 22px 20px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.join("")}</table>
+<div style="font-family:${MONO};font-size:11px;letter-spacing:.5em;color:#6b6a66;padding-top:4px">||| | || ||| | ||| || |</div>
+</td></tr>
+</table></td></tr>`;
 }
 
 Deno.serve(async (req) => {
@@ -273,11 +330,18 @@ Deno.serve(async (req) => {
   tasks.push(sendMail(
     data.email,
     `Haarschnitt ${when.short}`,
-    mailLayout(`<h1 style="font-size:24px;margin:0 0 12px">Hey ${name}, dein Termin steht.</h1>
-<p style="margin:0 0 4px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.day)}</p>
-<p style="margin:0 0 16px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.time)}</p>
-<p style="margin:0 0 16px;color:#b5b5b0">Ort: ${esc(LOCATION)}</p>
-<p style="margin:0;color:#b5b5b0">Du kannst doch nicht? Schreib mir.</p>`),
+    mailLayout(
+      mailTitle(`Dein ${hl("Termin")}`) +
+      mailText(`Hey ${name}, ist eingetragen.`, "0 0 6px") +
+      mailTicket({
+        tag: "GEBUCHT",
+        day: esc(when.ticketDay),
+        rows: [["UHRZEIT", esc(when.start)], ["DAUER", esc(when.dur)], ["ORT", esc(LOCATION)], ["NAME", name]],
+      }) +
+      mailText("Der Termin hängt als Kalendereintrag an (termin.ics).") +
+      mailText("Du kannst doch nicht? Sag mir einfach kurz Bescheid, dann gebe ich den Slot wieder frei.", "0"),
+      `${when.day}, ${when.time} · ${LOCATION}`,
+    ),
     `Hey ${data.name}, dein Termin steht.\n\n${when.day}\n${when.time}\nOrt: ${LOCATION}\n\nDu kannst doch nicht? Schreib mir.`,
     env("ADMIN_EMAIL") || undefined,
     [icsAttachment(icsKunde)],
@@ -287,10 +351,20 @@ Deno.serve(async (req) => {
     tasks.push(sendMail(
       env("ADMIN_EMAIL"),
       `Neue Buchung: ${when.short} – ${data.name}`,
-      mailLayout(`<h1 style="font-size:22px;margin:0 0 12px">Neue Buchung</h1>
-<p style="margin:0 0 12px;color:#d4ff3a;font-family:ui-monospace,Menlo,monospace">${esc(when.day)}<br>${esc(when.time)}</p>
-<p style="margin:0 0 4px">${name} · <a style="color:#f2f2f0" href="mailto:${esc(data.email)}">${esc(data.email)}</a></p>
-${note ? `<p style="margin:12px 0 0;color:#b5b5b0">Notiz: ${note}</p>` : ""}`),
+      mailLayout(
+        mailTitle(`Neue ${hl("Buchung")}`) +
+        mailTicket({
+          tag: "NEU",
+          day: esc(when.ticketDay),
+          rows: [
+            ["UHRZEIT", esc(when.start)], ["DAUER", esc(when.dur)],
+            ["NAME", name], ["ORT", esc(LOCATION)],
+            ["E-MAIL", `<a style="color:${C.bg};text-decoration:underline" href="mailto:${esc(data.email)}">${esc(data.email)}</a>`],
+          ],
+        }) +
+        (note ? mailText(`<b style="color:${C.ink}">Notiz:</b> ${note}`, "0") : ""),
+        `${when.short} – ${name}`,
+      ),
       `Neue Buchung\n${when.day}, ${when.time}\n${data.name} <${data.email}>${data.note ? "\nNotiz: " + data.note : ""}`,
       data.email,
       [icsAttachment(icsAdmin)],
