@@ -22,11 +22,47 @@ header { display: flex; justify-content: space-between; align-items: center; min
 .progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 18px 0 34px; transition: opacity .3s; }
 .progress.hide { opacity: 0; }
 .progress i { height: 4px; border-radius: 2px; background: var(--line); position: relative; overflow: hidden; }
-.progress i.done::after { content: ""; position: absolute; inset: 0; background: var(--ink); }
+.progress i::after { content: ""; position: absolute; inset: 0; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform .45s cubic-bezier(.65,0,.35,1); }
+.progress i.done::after { transform: scaleX(1); }
+.step-no { display: inline-block; }
+.step-no.tick { animation: tick .3s cubic-bezier(.2,.9,.2,1); }
+@keyframes tick { from { opacity: 0; transform: translateY(-6px); } }
 
-.step { animation: in .35s cubic-bezier(.2,.9,.2,1); }
-@keyframes in { from { opacity: 0; transform: translateY(12px); } }
-@media (prefers-reduced-motion: reduce) { .step { animation: none; } }
+/* Seitenwechsel: vorwärts von rechts, zurück von links; Inhalte kommen nacheinander.
+   fill-mode "backwards" statt "both", damit Hover-Effekte danach wieder greifen. */
+.step { --dx: 28px; --ease: cubic-bezier(.2,.9,.2,1); }
+main[data-dir="back"] .step { --dx: -28px; }
+.step > * { animation: step-in .45s var(--ease) backwards; }
+.step > :nth-child(2) { animation-delay: .04s; }
+.step > :nth-child(3) { animation-delay: .08s; }
+.step > :nth-child(4) { animation-delay: .12s; }
+.step > :nth-child(n+5) { animation-delay: .16s; }
+@keyframes step-in { from { opacity: 0; transform: translateX(var(--dx)); } }
+/* Tage und Uhrzeiten fallen kurz versetzt rein */
+.list > .opt, .times > .opt { animation: pop .4s var(--ease) backwards; }
+.list > .opt:nth-child(2), .times > .opt:nth-child(2) { animation-delay: .1s; }
+.list > .opt:nth-child(3), .times > .opt:nth-child(3) { animation-delay: .14s; }
+.list > .opt:nth-child(4), .times > .opt:nth-child(4) { animation-delay: .18s; }
+.list > .opt:nth-child(5), .times > .opt:nth-child(5) { animation-delay: .22s; }
+.list > .opt:nth-child(6), .times > .opt:nth-child(6) { animation-delay: .26s; }
+.list > .opt:nth-child(n+7), .times > .opt:nth-child(n+7) { animation-delay: .3s; }
+.list > .opt:first-child, .times > .opt:first-child { animation-delay: .06s; }
+@keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+/* Ticket wird „ausgedruckt“: rutscht von oben rein, kippt in Schräglage, Zeilen erscheinen */
+.step > .ticket-wrap { animation: none; }
+#s4 .ticket { animation: print .7s cubic-bezier(.3,1.35,.4,1) .12s backwards; }
+@keyframes print { from { opacity: 0; transform: translateY(-40px) rotate(4deg) scale(.96); } }
+#s4 .ticket .rows > div { animation: pop .35s var(--ease) backwards; }
+#s4 .ticket .rows > div:nth-child(1) { animation-delay: .5s; }
+#s4 .ticket .rows > div:nth-child(2) { animation-delay: .56s; }
+#s4 .ticket .rows > div:nth-child(3) { animation-delay: .62s; }
+#s4 .ticket .rows > div:nth-child(4) { animation-delay: .68s; }
+#s4 .ticket .code { animation: fade .4s ease .8s backwards; }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .step > *, .list > .opt, .times > .opt, #s4 .ticket, #s4 .ticket .rows > div, #s4 .ticket .code, .step-no.tick { animation: none; }
+  .progress i::after { transition: none; }
+}
 
 .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
 h1 { font-size: clamp(44px, 13vw, 64px); line-height: .92; letter-spacing: -.05em; margin: 0 0 14px; font-weight: 800; }

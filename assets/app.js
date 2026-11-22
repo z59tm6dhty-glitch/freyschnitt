@@ -42,11 +42,14 @@
     if (n === 3 && !selected) n = 1;
     if (n === 4 && !booked) n = 1;
     if (n > 0 && n < 4 && !code) n = 0;
+    // Richtung für die Animation: vorwärts von rechts, zurück von links
+    document.querySelector("main").dataset.dir = n < step ? "back" : "fwd";
     for (let i = 0; i <= 4; i++) $("s" + i).hidden = i !== n;
     const prog = $("progress");
     prog.classList.toggle("hide", n === 0);
     prog.querySelectorAll("i").forEach((x, i) => x.classList.toggle("done", i < Math.min(n, 3)));
-    $("step-no").textContent = n === 0 ? "" : n === 4 ? "✓" : n + " / 3";
+    const no = $("step-no"), label = n === 0 ? "" : n === 4 ? "✓" : n + " / 3";
+    if (no.textContent !== label) { no.textContent = label; no.classList.remove("tick"); void no.offsetWidth; no.classList.add("tick"); }
     if (push && n !== step) history.pushState({ s: n }, "");
     step = n;
     window.scrollTo(0, 0);
