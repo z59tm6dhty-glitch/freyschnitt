@@ -269,11 +269,19 @@
     $("tk-time").textContent = fmtTime.format(s);
     $("tk-dur").textContent = Math.round((e - s) / 60000) + " Min";
     $("tk-name").textContent = booked.name;
-    $("mailnote").textContent = "Die Bestätigung geht an " + booked.email + ". Schau auch im Spam-Ordner nach, falls sie nicht ankommt.";
+    $("mailnote").textContent = "Die Bestätigung (mit Kalender-Einladung im Anhang) geht an " + booked.email + ". Schau auch im Spam-Ordner nach, falls sie nicht ankommt.";
+    renderCalendarLinks();
   }
 
-  // Kalender: dieselbe Einladung wie im Mail-Anhang
+  // ---------- Kalender ----------
+  // Bewusst echte Links statt Skript-Download: iPhone-Safari, Android und
+  // In-App-Browser (WhatsApp, Instagram …) behandeln einen Tipp auf einen Link
+  // zuverlässiger als ein per JavaScript ausgelöstes click()/location.href.
+  // Die .ics ist dieselbe Einladung wie im Mail-Anhang.
+  const CAL_TITLE = "Friseur " + LOCATION;
+  const CAL_TEXT = "Du kannst doch nicht? Schreib mir.";
   const icsDate = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const icsText = (t) => String(t).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
   function buildIcs() {
     return [
       "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Freyschnitt//Termine//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
@@ -282,30 +290,35 @@
       "DTSTAMP:" + icsDate(new Date()),
       "DTSTART:" + icsDate(new Date(booked.starts_at)),
       "DTEND:" + icsDate(new Date(booked.ends_at)),
-      "SUMMARY:Friseur " + LOCATION,
-      "DESCRIPTION:Du kannst doch nicht? Schreib mir.",
-      "LOCATION:" + LOCATION,
+      "SUMMARY:" + icsText(CAL_TITLE),
+      "DESCRIPTION:" + icsText(CAL_TEXT),
+      "LOCATION:" + icsText(LOCATION),
       "STATUS:CONFIRMED",
-      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Friseur " + LOCATION, "TRIGGER:-PT1H", "END:VALARM",
+      "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + icsText(CAL_TITLE), "TRIGGER:-PT1H", "END:VALARM",
       "END:VEVENT", "END:VCALENDAR", "",
     ].join("\r\n");
   }
+
+  function renderCalendarLinks() {
+    const s = new Date(booked.starts_at), e = new Date(booked.ends_at);
+    // data:-URL statt blob:-URL: bleibt gültig, funktioniert auch in WebViews
+    $("cal-ics").href = "data:text/calendar;charset=utf-8," + encodeURIComponent(buildIcs());
+    $("cal-google").href = "https://calendar.google.com/calendar/render?" + new URLSearchParams({
+      action: "TEMPLATE", text: CAL_TITLE, dates: icsDate(s) + "/" + icsDate(e), details: CAL_TEXT, location: LOCATION,
+    });
+    $("cal-outlook").href = "https://outlook.live.com/calendar/0/deeplink/compose?" + new URLSearchParams({
+      path: "/calendar/action/compose", rru: "addevent", subject: CAL_TITLE,
+      startdt: s.toISOString(), enddt: e.toISOString(), body: CAL_TEXT, location: LOCATION,
+    });
+    $("cal-opts").hidden = true;
+    $("cal").setAttribute("aria-expanded", "false");
+  }
+
   $("cal").addEventListener("click", () => {
     if (!booked) return;
-    const ics = buildIcs();
-    const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (iOS) {
-      // iPhone/iPad: Safari öffnet die Kalender-Vorschau mit „Hinzufügen“
-      location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
-      return;
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-    a.download = "termin.ics";
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const open = $("cal-opts").hidden;
+    $("cal-opts").hidden = !open;
+    $("cal").setAttribute("aria-expanded", String(open));
   });
 
   // ---------- Start ----------

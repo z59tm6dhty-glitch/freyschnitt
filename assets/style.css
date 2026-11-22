@@ -100,5 +100,7 @@ h1 em { font-style: normal; background: var(--accent); padding: 0 .1em; border-r
 .ticket .rows small { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: rgba(239,236,228,.55); }
 .ticket .rows b { font-size: 18px; overflow-wrap: anywhere; }
 .ticket .code { padding: 0 22px 22px; font-family: var(--mono); font-size: 11px; letter-spacing: .5em; color: rgba(239,236,228,.4); }
+.cal-opts { margin-top: 12px; }
+a.opt { text-decoration: none; }
 .small { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 22px 0 0; }
 .small + .small { margin-top: 10px; }

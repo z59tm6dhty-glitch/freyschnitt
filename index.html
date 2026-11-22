@@ -91,7 +91,12 @@
           <div class="code" aria-hidden="true">||| | || ||| | ||| || |</div>
         </div>
       </div>
-      <button class="btn ghost center" type="button" id="cal">In Kalender übernehmen</button>
+      <button class="btn ghost center" type="button" id="cal" aria-expanded="false" aria-controls="cal-opts">In Kalender übernehmen</button>
+      <div class="list cal-opts" id="cal-opts" hidden>
+        <a class="opt" id="cal-ics" href="#" download="termin.ics"><span><b>iPhone / Apple</b><br><small>auch Outlook &amp; andere Kalender-Apps</small></span><span aria-hidden="true">↓</span></a>
+        <a class="opt" id="cal-google" href="#" target="_blank" rel="noopener"><span><b>Google Kalender</b><br><small>Android &amp; Browser</small></span><span aria-hidden="true">↗</span></a>
+        <a class="opt" id="cal-outlook" href="#" target="_blank" rel="noopener"><span><b>Outlook.com</b><br><small>Hotmail, Live, Office 365</small></span><span aria-hidden="true">↗</span></a>
+      </div>
       <p class="small" id="mailnote">Du bekommst gleich eine Bestätigung per Mail. Schau auch im Spam-Ordner nach, falls sie nicht ankommt.</p>
       <p class="small">Du kannst doch nicht? Sag mir einfach kurz Bescheid, dann gebe ich den Slot wieder frei.</p>
     </section>
